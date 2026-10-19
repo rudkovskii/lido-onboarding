@@ -327,7 +327,7 @@ describe('экраны', () => {
     expect(note.classList.contains('on')).toBe(true);
     root.querySelector<HTMLButtonElement>('[data-mini-next]')!.click();
     expect(cfg().track).toBe(TRACKS[1]!.id);
-    expect(root.querySelector('[data-mini-title]')!.textContent).toContain(TRACKS[1]!.pl);
+    expect(root.querySelector('[data-mini-title]')!.textContent).toContain(TRACKS[1]!.name);
     const vol = root.querySelector<HTMLInputElement>('[data-mini-volume]')!;
     vol.value = '25';
     vol.dispatchEvent(new Event('input'));
