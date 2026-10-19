@@ -1,0 +1,17 @@
+{
+  "tiles": {
+    "lawn": { "variants": [ {"sprite":"t_lawn","frame":0}, {"sprite":"t_lawn","frame":1}, {"sprite":"t_lawn","frame":2}, {"sprite":"t_lawn","frame":3} ] },
+    "lawn2": { "variants": [ {"sprite":"t_lawn2","frame":0}, {"sprite":"t_lawn2","frame":1}, {"sprite":"t_lawn2","frame":2}, {"sprite":"t_lawn2","frame":3} ] },
+    "paving": { "variants": [ {"sprite":"t_paving","frame":0}, {"sprite":"t_paving","frame":1}, {"sprite":"t_paving","frame":2}, {"sprite":"t_paving","frame":3} ] },
+    "deck": { "sprite": "t_deck", "mask": "auto16" },
+    "roof": { "sprite": "t_roof", "mask": "auto16" },
+    "facade": { "variants": [ {"sprite":"t_facade","frame":0}, {"sprite":"t_facade","frame":1} ] },
+    "hedge": { "sprite": "t_hedge" },
+    "water": { "sprite": "t_water", "mask": "auto16" },
+    "floor": { "variants": [ {"sprite":"t_floor","frame":0}, {"sprite":"t_floor","frame":1}, {"sprite":"t_floor","frame":2} ] },
+    "wall_top": { "sprite": "t_wall_top" },
+    "wall_face": { "sprite": "t_wall_face" },
+    "door": { "sprite": "t_door" },
+    "mat": { "sprite": "t_mat" }
+  }
+}

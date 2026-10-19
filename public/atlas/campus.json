@@ -1,0 +1,146 @@
+{
+ "id": "campus",
+ "image": "campus.png",
+ "tileSize": 16,
+ "margin": 1,
+ "spacing": 2,
+ "columns": 16,
+ "count": 70,
+ "tiles": {
+  "deck": {
+   "kind": "auto16",
+   "frames": [
+    12,
+    13,
+    14,
+    15,
+    16,
+    17,
+    18,
+    19,
+    20,
+    21,
+    22,
+    23,
+    24,
+    25,
+    26,
+    27
+   ]
+  },
+  "door": {
+   "kind": "single",
+   "frames": [
+    68
+   ]
+  },
+  "facade": {
+   "kind": "variants",
+   "frames": [
+    44,
+    45
+   ]
+  },
+  "floor": {
+   "kind": "variants",
+   "frames": [
+    63,
+    64,
+    65
+   ]
+  },
+  "hedge": {
+   "kind": "single",
+   "frames": [
+    46
+   ]
+  },
+  "lawn": {
+   "kind": "variants",
+   "frames": [
+    0,
+    1,
+    2,
+    3
+   ]
+  },
+  "lawn2": {
+   "kind": "variants",
+   "frames": [
+    4,
+    5,
+    6,
+    7
+   ]
+  },
+  "mat": {
+   "kind": "single",
+   "frames": [
+    69
+   ]
+  },
+  "paving": {
+   "kind": "variants",
+   "frames": [
+    8,
+    9,
+    10,
+    11
+   ]
+  },
+  "roof": {
+   "kind": "auto16",
+   "frames": [
+    28,
+    29,
+    30,
+    31,
+    32,
+    33,
+    34,
+    35,
+    36,
+    37,
+    38,
+    39,
+    40,
+    41,
+    42,
+    43
+   ]
+  },
+  "wall_face": {
+   "kind": "single",
+   "frames": [
+    67
+   ]
+  },
+  "wall_top": {
+   "kind": "single",
+   "frames": [
+    66
+   ]
+  },
+  "water": {
+   "kind": "auto16",
+   "frames": [
+    47,
+    48,
+    49,
+    50,
+    51,
+    52,
+    53,
+    54,
+    55,
+    56,
+    57,
+    58,
+    59,
+    60,
+    61,
+    62
+   ]
+  }
+ }
+}

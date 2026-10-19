@@ -1,4 +1,5 @@
-"""Тайлы 16×16: трава, дорожка, грядка, забор, пол, стены. Без контура (кроме забора), цвета из рамп материалов."""
+"""Тайлы 16×16 кампуса и офиса: газон, плитка, терраса, стеклянная крыша кольца (автотайл), фасад, дверь, живая изгородь, вода бассейна,
+пол офиса, стены. Без контура, цвета только из рамп материалов."""
 from __future__ import annotations
 
 import random
@@ -11,22 +12,6 @@ N, E, S, W = 1, 2, 4, 8
 
 def grid(fill: str) -> list[list[str | None]]:
     return [[fill] * T for _ in range(T)]
-
-
-def grass(seed: int):
-    rng = random.Random(seed)
-    g = grid('grass.2')
-    for _ in range(9):
-        x, y = rng.randrange(T), rng.randrange(T)
-        g[y][x] = 'grass.3'
-    for _ in range(6):
-        x, y = rng.randrange(T), rng.randrange(T)
-        g[y][x] = 'grass.1'
-    for _ in range(2):
-        # травинка: тёмный стебель с светлой вершиной
-        x, y = rng.randrange(1, T - 1), rng.randrange(3, T)
-        g[y][x] = 'grass.1'; g[y - 1][x] = 'grass.1'; g[y - 2][x] = 'grass.3'
-    return g
 
 
 def edge_dist(mask: int, x: int, y: int) -> int:
@@ -46,70 +31,138 @@ def corner_cut(mask: int, x: int, y: int) -> bool:
     return False
 
 
-def patch(mat: str, seed: int, mask: int, furrow: bool):
-    """Дорожка или грядка: фактура материала, у открытых сторон тёмная кромка и трава."""
+def lawn(seed: int, light: bool):
+    """Подстриженный газон: ровный тон и тонкие светлые штрихи; light — соседняя полоса покоса."""
     rng = random.Random(seed)
-    g = [[f'{mat}.2'] * T for _ in range(T)]
-    for y in range(T):
-        for x in range(T):
-            if furrow:
-                g[y][x] = f'{mat}.1' if y % 4 == 2 else (f'{mat}.3' if y % 4 == 1 else f'{mat}.2')
-            elif rng.random() < 0.14:
-                g[y][x] = f'{mat}.3' if rng.random() < 0.6 else f'{mat}.1'
-    for y in range(T):
-        for x in range(T):
-            d = edge_dist(mask, x, y)
-            if d == 0 or corner_cut(mask, x, y):
-                g[y][x] = 'grass.1' if (x + y) % 2 else 'grass.2'
-            elif d == 1:
-                g[y][x] = f'{mat}.0' if furrow else f'{mat}.1'
+    base, hi, lo = ('grass.3', 'grass.4', 'grass.2') if light else ('grass.2', 'grass.3', 'grass.1')
+    g = grid(base)
+    for _ in range(7):
+        g[rng.randrange(T)][rng.randrange(T)] = hi
+    for _ in range(4):
+        g[rng.randrange(T)][rng.randrange(T)] = lo
     return g
 
 
-def soil_patch(seed: int, mask: int):
-    """Вскопанная земля (Stardew): тёмная влажная почва, прерывистые борозды с гребнем, комки; у открытых сторон мягкий край к траве.
-    Фактура на внутренних клетках периодична по 16 px (стыкуется), края рваные, свет сверху-слева."""
-    rng = random.Random(1031)  # зерно одно на все маски: клетки стыкуются
-    g = [['soil.2'] * T for _ in range(T)]
-    # крупное пятнистое зерно: чуть светлее/темнее участки
-    for _ in range(20):
-        x, y = rng.randrange(T), rng.randrange(T)
-        g[y][x] = 'soil.3' if rng.random() < 0.5 else 'soil.1'
-    # борозды: две на клетку, с разрывами (чтобы не читалось полосами), гребень сверху светлее
-    for gy, gaps in ((4, (3, 4, 10)), (12, (1, 8, 9))):
-        for x in range(T):
-            if x in gaps:
-                continue
-            g[gy][x] = 'soil.0' if (x + gy) % 5 else 'soil.1'
-            g[gy + 1][x] = 'soil.1'
-            g[gy - 1][x] = 'soil.3' if (x * 3 + gy) % 4 else 'soil.4'
-    # комки: светлая точка + тень справа-снизу
-    for x, y in ((2, 8), (7, 1), (12, 9), (14, 2), (5, 14), (10, 6)):
-        g[y][x] = 'soil.4'
-        g[y + 1][x + 1 if x + 1 < T else 0] = 'soil.1'
+def paving(seed: int):
+    """Светлая плитка: ряды по 8 px со сдвигом швов, лёгкая фактура, швы чуть темнее плиты."""
     rng = random.Random(seed)
-    # открытые стороны: рваный край, светлая кромка сверху/слева, тень снизу/справа
+    g = grid('concrete.3')
+    for y in range(T):
+        for x in range(T):
+            r = rng.random()
+            if r < 0.06:
+                g[y][x] = 'concrete.4'
+            elif r < 0.1:
+                g[y][x] = 'concrete.2'
+    for x in range(T):
+        g[7][x] = 'concrete.2'
+        g[15][x] = 'concrete.2'
+    for y in range(0, 7):
+        g[y][7] = 'concrete.2'
+    for y in range(8, 15):
+        g[y][15] = 'concrete.2'
+    return g
+
+
+def deck(seed: int, mask: int):
+    """Терраса под рабочими местами: крупные серые плиты, у открытых сторон тёмная кромка."""
+    rng = random.Random(seed)
+    g = grid('stone.3')
+    for y in range(T):
+        for x in range(T):
+            if rng.random() < 0.06:
+                g[y][x] = 'stone.4'
+    for i in range(T):
+        g[7][i] = 'stone.2'
+        g[i][7] = 'stone.2'
     for y in range(T):
         for x in range(T):
             d = edge_dist(mask, x, y)
-            if d > 2 and not corner_cut(mask, x, y):
-                continue
-            lit = (not mask & N and y <= 2) or (not mask & W and x <= 2)
-            r = rng.random()
             if corner_cut(mask, x, y):
-                g[y][x] = 'grass.1' if (x + y) % 2 else 'grass.2'
+                g[y][x] = 'concrete.2' if (x + y) % 2 else 'concrete.3'
             elif d == 0:
-                g[y][x] = 'grass.2' if r < 0.55 else ('grass.1' if r < 0.8 else 'soil.1')
+                g[y][x] = 'stone.1'
             elif d == 1:
-                g[y][x] = 'soil.1' if (r < 0.55 or not lit) else ('grass.1' if r < 0.62 else 'soil.3')
+                g[y][x] = 'stone.2'
+    return g
+
+
+def roof(seed: int, mask: int):
+    """Стеклянная крыша кольца: светлое стекло с диагональными бликами и серым ободом у открытых сторон."""
+    g = grid('glass.3')
+    for y in range(T):
+        for x in range(T):
+            k = (x + y) % 8
+            if k == 0:
+                g[y][x] = 'glass.4'
+            elif k == 1:
+                g[y][x] = 'glass.2'
+    for y in range(T):
+        for x in range(T):
+            d = edge_dist(mask, x, y)
+            if d == 0:
+                g[y][x] = 'concrete.4'
+            elif d == 1:
+                g[y][x] = 'concrete.2'
             elif d == 2:
-                g[y][x] = 'soil.3' if (lit and r < 0.55) else ('soil.1' if r < 0.12 else g[y][x])
+                g[y][x] = 'tin.3'
+    return g
+
+
+def facade(variant: int):
+    """Стеклянный фасад: тёмное зеркальное стекло, светлые импосты каждые 4 px, отражение неба."""
+    g = grid('glass_dark.2')
+    for y in range(T):
+        for x in range(T):
+            if (x + variant * 2) % 4 == 0:
+                g[y][x] = 'concrete.3'
+            elif y < 6:
+                g[y][x] = 'glass_dark.3'
+            elif y > 12:
+                g[y][x] = 'glass_dark.1'
+    for x in range(T):
+        g[0][x] = 'concrete.4'
+        g[1][x] = 'concrete.2'
+        g[T - 1][x] = 'concrete.1'
+    for k in range(5):
+        g[3 + k][(variant * 5 + k * 2 + 1) % T] = 'glass_dark.4'
+    return g
+
+
+def door_glass():
+    g = facade(0)
+    for y in range(2, T):
+        for x in range(2, 14):
+            g[y][x] = 'glass.3' if x != 7 and x != 8 else 'tin.2'
+    for x in range(1, 15):
+        g[2][x] = 'tin.2'
+    for y in range(2, T):
+        g[y][1] = 'tin.2'
+        g[y][14] = 'tin.2'
+    g[9][6] = 'tin.4'; g[9][9] = 'tin.4'
+    g[4][3] = 'glass.4'; g[5][4] = 'glass.4'; g[4][11] = 'glass.4'
+    return g
+
+
+def hedge():
+    rng = random.Random(9)
+    g = grid('leaf.2')
+    for y in range(T):
+        for x in range(T):
+            r = rng.random()
+            if r < 0.22:
+                g[y][x] = 'leaf.3'
+            elif r < 0.34:
+                g[y][x] = 'leaf.1'
+    for x in range(T):
+        g[0][x] = 'leaf.3'
+        g[T - 1][x] = 'leaf.1'
     return g
 
 
 def water_patch(seed: int, mask: int):
-    """Вода бассейна (автотайл): рябь periodic по 16 px (стыкуется), светлая каёмка и камень-бортик у открытых сторон."""
-    rng = random.Random(77)  # зерно одно на все маски: клетки стыкуются
+    """Вода бассейна (автотайл): рябь periodic по 16 px, светлая каёмка и бортик из камня у открытых сторон."""
+    rng = random.Random(77)
     g = [['water.2'] * T for _ in range(T)]
     for _ in range(22):
         x, y = rng.randrange(T), rng.randrange(T)
@@ -125,119 +178,90 @@ def water_patch(seed: int, mask: int):
         for x in range(T):
             d = edge_dist(mask, x, y)
             if corner_cut(mask, x, y):
-                g[y][x] = 'grass.1' if (x + y) % 2 else 'grass.2'
+                g[y][x] = 'concrete.2' if (x + y) % 2 else 'concrete.3'
             elif d == 0:
-                g[y][x] = 'stone.3'
+                g[y][x] = 'concrete.4'
             elif d == 1:
-                g[y][x] = 'stone.2' if (x + y) % 2 else 'stone.3'
+                g[y][x] = 'concrete.3' if (x + y) % 2 else 'concrete.4'
             elif d == 2:
                 g[y][x] = 'water.4'
     return g
 
 
-def floor(seed: int):
+def ofloor(seed: int):
+    """Пол офиса: светлый ковролин плитками 8×8, слабый шов, редкие светлые крапинки."""
     rng = random.Random(seed)
-    g = grid('plank.2')
-    for row in range(4):
-        y0 = row * 4
+    g = grid('concrete.3')
+    for y in range(T):
         for x in range(T):
-            g[y0][x] = 'plank.3'
-            g[y0 + 3][x] = 'plank.1'
-        jx = (seed * 5 + row * 7) % T
-        for y in range(y0, y0 + 4):
-            g[y][jx] = 'plank.1'
-        for _ in range(3):
-            g[y0 + rng.randrange(1, 3)][rng.randrange(T)] = 'plank.1' if rng.random() < 0.5 else 'plank.3'
+            if (x // 8 + y // 8) % 2:
+                g[y][x] = 'concrete.3'
+            if rng.random() < 0.05:
+                g[y][x] = 'concrete.4'
+    for i in range(T):
+        g[7][i] = 'concrete.2'
+        g[i][7] = 'concrete.2'
     return g
 
 
 def wall_top():
-    g = grid('wood_dark.2')
+    g = grid('concrete.3')
     for x in range(T):
-        g[0][x] = 'wood_dark.3'; g[1][x] = 'wood_dark.3'; g[T - 1][x] = 'wood_dark.1'
-    for x in (5, 11):
-        for y in range(2, T):
-            g[y][x] = 'wood_dark.1'
+        g[0][x] = 'concrete.4'; g[T - 1][x] = 'concrete.1'
     return g
 
 
 def wall_face():
-    g = grid('wall.2')
-    for y in range(11):
-        for x in range(T):
-            if x % 4 == 0:
-                g[y][x] = 'wall.3'
+    """Белая стена с плинтусом и тонкими швами панелей."""
+    g = grid('chalk.2')
+    for y in range(12):
+        g[y][0] = 'chalk.3'
+        g[y][T - 1] = 'chalk.1'
     for x in range(T):
-        g[0][x] = 'wood_dark.1'
-        g[11][x] = 'wood.3'
-        for y in range(12, 15):
-            g[y][x] = 'wood.2'
-        g[13][x] = 'wood.3' if x % 8 < 7 else 'wood.1'
-        g[15][x] = 'wood_dark.1'
-    return g
-
-
-def door_tile():
-    g = wall_face()
-    for y in range(T):
-        for x in range(1, 15):
-            g[y][x] = 'wood_dark.0' if x in (1, 14) else 'wood.2'
-        g[y][2] = 'wood.3'; g[y][13] = 'wood.1'
-    for x in range(1, 15):
-        g[0][x] = 'wood_dark.0'
-    for y in (4, 5, 6, 9, 10, 11):
-        for x in range(4, 12):
-            g[y][x] = 'wood.1' if y in (6, 11) else 'wood.3' if y in (4, 9) else 'wood.2'
-    g[9][11] = 'gold.3'; g[10][11] = 'gold.2'
+        g[0][x] = 'concrete.1'
+        g[12][x] = 'tin.3'
+        for y in range(13, T):
+            g[y][x] = 'tin.2'
+        g[T - 1][x] = 'tin.1'
     return g
 
 
 def mat_tile():
-    g = grid('rug2.2')
+    g = grid('tin.1')
     for y in range(T):
         for x in range(T):
-            if min(x, y, T - 1 - x, T - 1 - y) in (0, 1):
-                g[y][x] = 'rug.2' if min(x, y, T - 1 - x, T - 1 - y) == 1 else 'rug.0'
-            elif (x + y) % 4 == 0:
-                g[y][x] = 'rug2.3'
+            if (x + y) % 4 == 0:
+                g[y][x] = 'tin.2'
+    for i in range(T):
+        g[0][i] = 'tin.0'; g[T - 1][i] = 'tin.0'; g[i][0] = 'tin.0'; g[i][T - 1] = 'tin.0'
     return g
 
 
-def fence(mask: int):
-    parts = {'post': P('wood', r=2, g='post'), 'rail': P('wood', r=1, g='rail')}
-    c = Cv(T, T, parts)
-    if mask & E: c.rect(8, 6, 8, 2.4, 'rail'); c.rect(8, 10, 8, 2, 'rail')
-    if mask & W: c.rect(0, 6, 8, 2.4, 'rail'); c.rect(0, 10, 8, 2, 'rail')
-    if mask & N: c.rect(6.8, 0, 2.6, 8, 'rail')
-    if mask & S: c.rect(6.8, 8, 2.6, 7, 'rail')
-    c.rect(5.5, 3.5, 4.5, 11.5, 'post')
-    c.rect(5.5, 2.5, 4.5, 1.5, 'post')
-    return c.render()
-
-
 def build() -> None:
-    sh = Sheet('t_grass', T, T, anchor=[8, 15])
+    for sid, light in (('t_lawn', False), ('t_lawn2', True)):
+        sh = Sheet(sid, T, T, anchor=[8, 15])
+        for i in range(4):
+            sh.add(lawn(i + 1, light))
+        emit(sh)
+    sh = Sheet('t_paving', T, T, anchor=[8, 15])
     for i in range(4):
-        sh.add(grass(i + 1))
+        sh.add(paving(i + 5))
     emit(sh)
-    for sid, mat, furrow, seed in (('t_path', 'dirt', False, 21), ('t_soil', 'soil', True, 31)):
+    for sid, fn in (('t_deck', deck), ('t_roof', roof), ('t_water', lambda s, m: water_patch(s, m))):
         s = Sheet(sid, T, T, anchor=[8, 15])
         for mask in range(16):
-            s.add(soil_patch(seed + mask, mask) if furrow else patch(mat, seed + mask, mask, furrow))
+            s.add(fn(41 + mask, mask))
         emit(s)
-    w = Sheet('t_water', T, T, anchor=[8, 15])
-    for mask in range(16):
-        w.add(water_patch(0, mask))
-    emit(w)
-    f = Sheet('t_fence', T, T, anchor=[8, 15])
-    for mask in range(16):
-        f.add(fence(mask))
+    f = Sheet('t_facade', T, T, anchor=[8, 15])
+    for v in range(2):
+        f.add(facade(v))
     emit(f)
+    single('t_door', door_glass(), anchor=[8, 15])
+    single('t_hedge', hedge(), anchor=[8, 15])
     fl = Sheet('t_floor', T, T, anchor=[8, 15])
     for i in range(3):
-        fl.add(floor(i + 1))
+        fl.add(ofloor(i + 1))
     emit(fl)
     single('t_wall_top', wall_top(), anchor=[8, 15])
     single('t_wall_face', wall_face(), anchor=[8, 15])
-    single('t_door', door_tile(), anchor=[8, 15])
     single('t_mat', mat_tile(), anchor=[8, 15])

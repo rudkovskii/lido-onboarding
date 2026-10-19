@@ -40,7 +40,7 @@ ART = ROOT / 'art'
 OUT = ROOT / 'public' / 'atlas'
 T = 16  # тайл и кратность кадров
 PAD = 1  # extrude вокруг кадра
-LAST_PREFIXES = ('plant_',)  # 16 кустов растений: пакуются после остальных
+LAST_PREFIXES = ('zz_',)  # резерв: спрайты, которые должны паковаться последними
 
 RGBA = tuple[int, int, int, int]
 

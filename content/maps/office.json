@@ -1,0 +1,285 @@
+{
+ "id": "office",
+ "name": "Onboarding HQ",
+ "size": [
+  20,
+  14
+ ],
+ "defaultGround": "F",
+ "legend": {
+  "F": {
+   "tile": "floor"
+  },
+  "W": {
+   "tile": "wall_top",
+   "solid": true
+  },
+  "g": {
+   "tile": "facade",
+   "solid": true
+  },
+  "w": {
+   "tile": "wall_face",
+   "solid": true
+  },
+  "d": {
+   "tile": "door"
+  },
+  "m": {
+   "tile": "mat"
+  }
+ },
+ "layers": {
+  "ground": [
+   "WWWWWWWWWWWWWWWWWWWW",
+   "WggggggggggggggggggW",
+   "WFFFFFFFFFFFFFFFFFFW",
+   "WFFFFFFFFFFFFFFFFFFW",
+   "WFFFFFFFFFFFFFFFFFFW",
+   "WFFFFFFFFFFFFFFFFFFW",
+   "WFFFFFFFFFFFFFFFFFFW",
+   "WFFFFFFFFFFFFFFFFFFW",
+   "WFFFFFFFFFFFFFFFFFFW",
+   "WFFFFFFFFFFFFFFFFFFW",
+   "WFFFFFFFFFFFFFFFFFFW",
+   "WFFFFFFFFFFFFFFFFFFW",
+   "WFFFFFFFFFmFFFFFFFFW",
+   "WwwwwwwwwwdwwwwwwwwW"
+  ]
+ },
+ "spawns": {
+  "default": [
+   10,
+   11,
+   "up"
+  ],
+  "from_campus": [
+   10,
+   11,
+   "up"
+  ]
+ },
+ "objects": [
+  {
+   "type": "exit",
+   "at": [
+    10,
+    13
+   ],
+   "to": "campus",
+   "spawn": "door"
+  },
+  {
+   "type": "prop",
+   "id": "desk",
+   "sprite": "reception",
+   "at": [
+    8,
+    3
+   ],
+   "size": [
+    3,
+    1
+   ],
+   "use": "desk",
+   "label": "Handbook",
+   "shadow": 44
+  },
+  {
+   "type": "prop",
+   "id": "shelf",
+   "sprite": "badgewall",
+   "at": [
+    3,
+    2
+   ],
+   "size": [
+    2,
+    1
+   ],
+   "use": "shelf",
+   "label": "Learned",
+   "shadow": 26
+  },
+  {
+   "type": "prop",
+   "id": "plan",
+   "sprite": "whiteboard",
+   "at": [
+    14,
+    2
+   ],
+   "size": [
+    2,
+    1
+   ],
+   "use": "plan",
+   "label": "My onboarding plan",
+   "shadow": 26
+  },
+  {
+   "type": "prop",
+   "id": "radio",
+   "sprite": "speaker",
+   "at": [
+    12,
+    3
+   ],
+   "size": [
+    1,
+    1
+   ],
+   "use": "radio",
+   "label": "Radio",
+   "shadow": 12
+  },
+  {
+   "type": "prop",
+   "id": "odesk0",
+   "sprite": "odesk",
+   "at": [
+    3,
+    7
+   ],
+   "size": [
+    2,
+    1
+   ],
+   "shadow": 28
+  },
+  {
+   "type": "prop",
+   "id": "odesk1",
+   "sprite": "odesk",
+   "at": [
+    6,
+    7
+   ],
+   "size": [
+    2,
+    1
+   ],
+   "shadow": 28
+  },
+  {
+   "type": "prop",
+   "id": "odesk2",
+   "sprite": "odesk",
+   "at": [
+    3,
+    10
+   ],
+   "size": [
+    2,
+    1
+   ],
+   "shadow": 28
+  },
+  {
+   "type": "prop",
+   "id": "odesk3",
+   "sprite": "odesk",
+   "at": [
+    6,
+    10
+   ],
+   "size": [
+    2,
+    1
+   ],
+   "shadow": 28
+  },
+  {
+   "type": "prop",
+   "id": "glassroom",
+   "sprite": "glassroom",
+   "at": [
+    14,
+    7
+   ],
+   "size": [
+    4,
+    3
+   ],
+   "shadow": 0
+  },
+  {
+   "type": "prop",
+   "id": "pot0",
+   "sprite": "opot",
+   "at": [
+    1,
+    3
+   ],
+   "size": [
+    1,
+    1
+   ],
+   "shadow": 12
+  },
+  {
+   "type": "prop",
+   "id": "pot1",
+   "sprite": "opot",
+   "at": [
+    18,
+    3
+   ],
+   "size": [
+    1,
+    1
+   ],
+   "shadow": 12
+  },
+  {
+   "type": "prop",
+   "id": "pot2",
+   "sprite": "opot",
+   "at": [
+    1,
+    11
+   ],
+   "size": [
+    1,
+    1
+   ],
+   "shadow": 12
+  },
+  {
+   "type": "prop",
+   "id": "pot3",
+   "sprite": "opot",
+   "at": [
+    12,
+    11
+   ],
+   "size": [
+    1,
+    1
+   ],
+   "shadow": 12
+  },
+  {
+   "type": "prop",
+   "id": "pot4",
+   "sprite": "opot",
+   "at": [
+    18,
+    11
+   ],
+   "size": [
+    1,
+    1
+   ],
+   "shadow": 12
+  },
+  {
+   "type": "spot",
+   "id": "cat_sleep",
+   "at": [
+    2,
+    11
+   ]
+  }
+ ]
+}
