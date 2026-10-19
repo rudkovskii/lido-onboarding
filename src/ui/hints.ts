@@ -5,11 +5,12 @@ import type { BusEvents } from '../types/bus';
 import { el } from './dom';
 import { THEME_CSS } from './theme';
 
-/** Польское название и русская подсказка по `use` объекта. */
-export const HINTS: Readonly<Record<string, { pl: string; ru: string }>> = {
-  desk: { pl: 'Słownik', ru: 'Посади слова' },
-  board: { pl: 'Tablica', ru: 'Выбери мини-игру' },
-  bin: { pl: 'Skrzynka', ru: 'Сюда урожай' },
+/** Название и подсказка по `use` объекта. */
+export const HINTS: Readonly<Record<string, { title: string; text: string }>> = {
+  desk: { title: 'Handbook', text: 'Plant cards' },
+  board: { title: 'Mini-games', text: 'Pick a game' },
+  bin: { title: 'Harvest box', text: 'Harvest goes here' },
+  shelf: { title: 'Learned', text: 'Your finished cards' },
 };
 
 export const HINT_MS = 4500;
@@ -47,7 +48,7 @@ export function mountHints(parent: HTMLElement, deps: HintsDeps, bus: Bus<BusEve
       const h = HINTS[p.use];
       if (!h || deps.seen(p.use)) return;
       deps.mark(p.use);
-      node.replaceChildren(el('b', {}, h.pl), h.ru);
+      node.replaceChildren(el('b', {}, h.title), h.text);
       node.dataset.use = p.use;
       node.hidden = false;
       // Не вылезать за край экрана: у стола дом упирается в верх окна.

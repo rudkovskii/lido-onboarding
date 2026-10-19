@@ -10,10 +10,10 @@ import { THEME_CSS } from './theme';
 export type GuideStage = 'desk' | 'board' | 'replant';
 
 export const GUIDE_TEXT: Readonly<Record<GuideStage, string>> = {
-  desk: 'Иди к столу: там словарь',
-  board: 'Теперь к доске на огороде',
+  desk: 'Go to the desk: the Handbook is there',
+  board: 'Now to the board in the garden',
   // F5b: огород опустел после урожая — игра не молчит, а ведёт к столу (посадить ещё); гаснет, когда на грядках снова растёт.
-  replant: 'Огород пуст · Посади ещё слов за столом',
+  replant: 'Garden is empty · Plant more cards at the desk',
 };
 
 /** Объект, к которому ведёт этап: пустой огород ведёт к столу, как и первый шаг. */
@@ -153,7 +153,7 @@ export function mountGuide(parent: HTMLElement, deps: GuideDeps, bus: Bus<BusEve
       paint();
     }),
     bus.on('farm:plants', resync),
-    // Смена карты: «Огород пуст» говорит про грядки слов — в Zagroda (игры о Польше) он не нужен.
+    // Смена карты: «Garden is empty» актуально и в доме, и на улице.
     bus.on('world:location', resync),
     // Экран или мини-игра закрылись: мог измениться и огород без `farm:plants` (посадка в словаре), и этап.
     bus.on('world:input', ({ enabled }) => {

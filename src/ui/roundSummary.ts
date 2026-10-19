@@ -1,4 +1,4 @@
-// Раунды мини-игры (V11a): по 10 заданий, потом итог в стиле Stardew («Ещё раунд» / «Закончить»). Лимита на число раундов нет.
+// Раунды мини-игры: по 10 заданий, потом итог в стиле Stardew («Next round» / «Back»). Лимита на число раундов нет.
 // Здесь счёт раунда (чистая часть) и карточка итога; шапку «3 / 10» и переходы ведёт `ui/minigame.ts`.
 import { growthText, levelLabel } from '../systems/xp';
 import { el } from './dom';
@@ -11,8 +11,8 @@ export interface RoundAnswer {
   ok: boolean;
   /** Действие героя: полив, рост, урожай, промах; `xp` — опыт за ответ. */
   act?: { kind: 'water' | 'grow' | 'harvest' | 'miss'; xp: number };
-  /** Путь к A1 до и после ответа (позиция в уровнях) и название после ответа. */
-  path?: { from: number; to: number; sub: number; pl: string };
+  /** Путь к Onboarded до и после ответа (позиция в уровнях) и название после ответа. */
+  path?: { from: number; to: number; sub: number; label: string };
 }
 
 export interface RoundStats {
@@ -26,8 +26,8 @@ export interface RoundStats {
   harvested: number;
   xp: number;
   bestStreak: number;
-  /** Путь к A1: позиция до первого и после последнего ответа раунда, название и номер уровня сейчас. */
-  path?: { from: number; to: number; sub: number; pl: string };
+  /** Путь к Onboarded: позиция до первого и после последнего ответа раунда, название и номер уровня сейчас. */
+  path?: { from: number; to: number; sub: number; label: string };
 }
 
 /** Счётчик раунда: `add` на каждый ответ, `done` — раунд набрал `ROUND_SIZE`. */
@@ -48,7 +48,7 @@ export class Round {
     const s = this.s;
     s.total++;
     s.xp += r.act?.xp ?? 0;
-    if (r.path) s.path = { from: s.path?.from ?? r.path.from, to: r.path.to, sub: r.path.sub, pl: r.path.pl };
+    if (r.path) s.path = { from: s.path?.from ?? r.path.from, to: r.path.to, sub: r.path.sub, label: r.path.label };
     if (r.ok) {
       s.correct++;
       this.streak++;
@@ -87,27 +87,27 @@ export const roundCss = `
 /** Карточка итога раунда. `n` — номер раунда за этот заход (1, 2, …). */
 export function renderRoundSummary(n: number, s: Readonly<RoundStats>): HTMLElement {
   const row = (label: string, value: string, cls = ''): HTMLElement[] => [el('dt', cls ? { class: cls } : {}, label), el('dd', cls ? { class: cls } : {}, value)];
-  const good = s.total > 0 && s.correct === s.total ? 'Без единой ошибки!' : s.correct * 10 >= s.total * 8 ? 'Хороший раунд' : 'Раунд закончен';
+  const good = s.total > 0 && s.correct === s.total ? 'Flawless!' : s.correct * 10 >= s.total * 8 ? 'Good round' : 'Round finished';
   return el(
     'div',
     { class: 'pq-round', 'data-round-summary': '' },
-    el('h3', {}, `Раунд ${n} · итог`),
+    el('h3', {}, `Round ${n} · summary`),
     el('div', { class: 'sub' }, good),
     el(
       'dl',
       {},
-      ...row('Верно', `${s.correct} из ${s.total}`),
-      ...row('Полито', String(s.watered)),
-      ...row('Выросло', String(s.grew)),
-      ...row('Собрано', String(s.harvested)),
-      ...row('Опыт', `+${s.xp}`, 'xp'),
-      ...row('Лучшая серия', String(s.bestStreak)),
+      ...row('Correct', `${s.correct} of ${s.total}`),
+      ...row('Watered', String(s.watered)),
+      ...row('Grew', String(s.grew)),
+      ...row('Harvested', String(s.harvested)),
+      ...row('XP', `+${s.xp}`, 'xp'),
+      ...row('Best streak', String(s.bestStreak)),
     ),
     wayLine(s.path),
   );
 }
 
-/** Строка пути: «Уровень 2/20 · +0,4 уровня» (рост раунда — только если он есть). */
+/** Строка пути: «Level 2/8 · +0.4 level» (рост раунда — только если он есть). */
 function wayLine(p: RoundStats['path']): HTMLElement | null {
   if (!p) return null;
   const where = levelLabel(p.sub);

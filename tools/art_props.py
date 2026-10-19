@@ -237,7 +237,32 @@ def radio() -> None:
     single('radio', c.render(), anchor=[8, 31])
 
 
+def sunbed() -> None:
+    """Шезлонг у бассейна, 32×16 (2×1 клетки): синий матрас, подушка, деревянная рама."""
+    parts = {'frame': P('wood', r=1, g='frame'), 'mat': P('blanket', r=2, g='mat'), 'pil': P('pillow', r=1, g='pil'), 'leg': P('wood_dark', r=1, g='leg')}
+    c = Cv(32, 16, parts)
+    c.rect(3, 13, 2, 2, 'leg'); c.rect(27, 13, 2, 2, 'leg')
+    c.rect(2, 7, 28, 6, 'frame')
+    c.rect(4, 6, 24, 5, 'mat')
+    c.rect(4, 4, 7, 5, 'pil')
+    for x in (13, 17, 21, 25):
+        c.vline(x, 7, 10, 'blanket.3')
+    single('sunbed', c.render(), anchor=[16, 15])
+
+
+def umbrella() -> None:
+    """Зонт от солнца, 16×32 (клетка у основания): красно-белый купол, деревянный шест."""
+    parts = {'pole': P('wood', r=1, g='pole'), 'red': P('roof', r=2, g='red'), 'white': P('chalk', r=2, g='white'), 'base': P('stone', r=2, g='base')}
+    c = Cv(16, 32, parts)
+    c.rect(7, 9, 2, 20, 'pole')
+    c.rect(5, 29, 6, 2, 'base')
+    for i, (x0, x1) in enumerate(((0, 3), (3, 6), (6, 10), (10, 13), (13, 16))):
+        c.fill(lambda x, y, x0=x0, x1=x1: x0 <= x < x1 and ((x - 8) / 8) ** 2 + ((y - 9.5) / 6.5) ** 2 <= 1 and y < 10.5, 'red' if i % 2 == 0 else 'white')
+    single('umbrella', c.render(), anchor=[8, 31])
+
+
 def build() -> None:
+    sunbed(); umbrella()
     tree('tree', 3)
     tree('tree2', 11, ('leaf2', 'leaf'))
     bush('bush', 5)

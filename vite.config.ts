@@ -20,15 +20,15 @@ function buildId(): string {
 const BUILD_ID = buildId();
 
 /**
- * Версия сборки снаружи кэша: `index.html` несёт `<meta name="pq-build">`, рядом лежит `version.json` `{ "build": … }`.
+ * Версия сборки снаружи кэша: `index.html` несёт `<meta name="lo-build">`, рядом лежит `version.json` `{ "build": … }`.
  * Игра читает его с `cache: 'no-store'` (src/systems/platform/pwa.ts `watchVersion`) и при расхождении со своим
  * `__BUILD_ID__` перезагружается или показывает тост. version.json не кладётся в precache service worker'а.
  */
 function buildVersion(): Plugin {
   return {
-    name: 'pq-build-version',
+    name: 'lo-build-version',
     transformIndexHtml(html) {
-      return html.replace('</head>', `    <meta name="pq-build" content="${BUILD_ID}" />\n  </head>`);
+      return html.replace('</head>', `    <meta name="lo-build" content="${BUILD_ID}" />\n  </head>`);
     },
     generateBundle() {
       this.emitFile({ type: 'asset', fileName: 'version.json', source: `${JSON.stringify({ build: BUILD_ID })}\n` });
@@ -54,16 +54,16 @@ export default defineConfig({
       includeAssets: ['icons/apple-touch-icon.png'],
       manifest: {
         id: BASE,
-        name: 'Ferma',
-        short_name: 'Ferma',
-        description: 'Пиксельная ферма, где растут польские слова',
-        lang: 'ru',
+        name: 'Lido Pool Onboarding',
+        short_name: 'Lido Pool',
+        description: 'Pixel onboarding demo: grow your knowledge garden by the Lido pool (prototype, not an official Lido product)',
+        lang: 'en',
         display: 'standalone',
         orientation: 'portrait',
         start_url: BASE,
         scope: BASE,
-        background_color: '#2e5b3b',
-        theme_color: '#2e5b3b',
+        background_color: '#1f6f8b',
+        theme_color: '#1f6f8b',
         icons: [
           { src: 'icons/icon-180.png', sizes: '180x180', type: 'image/png' },
           { src: 'icons/icon-192.png', sizes: '192x192', type: 'image/png' },

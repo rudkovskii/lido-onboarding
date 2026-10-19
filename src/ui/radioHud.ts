@@ -40,26 +40,26 @@ export function mountMusicHud(parent: HTMLElement, music: MusicControl, o: { bus
   const bus = o.bus ?? globalBus;
   const doc = o.doc ?? document;
   const glyph = el('span', {}, '♪');
-  const btn = el('button', { type: 'button', class: 'pq-btn pq-note', 'data-music-hud': '', 'aria-label': 'Музыка', 'aria-expanded': 'false' }, glyph);
+  const btn = el('button', { type: 'button', class: 'pq-btn pq-note', 'data-music-hud': '', 'aria-label': 'Music', 'aria-expanded': 'false' }, glyph);
   const power = el('button', { type: 'button', class: 'pq-btn pq-toggle', 'data-mini-power': '', onclick: () => music.toggle() });
   const title = el('div', { class: 't', 'data-mini-title': '' });
-  const prev = el('button', { type: 'button', class: 'pq-btn', 'data-mini-prev': '', 'aria-label': 'Предыдущий трек', onclick: () => music.prev() }, '|◂');
-  const next = el('button', { type: 'button', class: 'pq-btn', 'data-mini-next': '', 'aria-label': 'Следующий трек', onclick: () => music.next() }, '▸|');
-  const vol = el('input', { type: 'range', min: '0', max: '100', step: '5', 'aria-label': 'Громкость музыки', 'data-mini-volume': '' });
+  const prev = el('button', { type: 'button', class: 'pq-btn', 'data-mini-prev': '', 'aria-label': 'Previous track', onclick: () => music.prev() }, '|◂');
+  const next = el('button', { type: 'button', class: 'pq-btn', 'data-mini-next': '', 'aria-label': 'Next track', onclick: () => music.next() }, '▸|');
+  const vol = el('input', { type: 'range', min: '0', max: '100', step: '5', 'aria-label': 'Music volume', 'data-mini-volume': '' });
   const volOut = el('output', {});
   vol.addEventListener('input', () => music.setVolume(Number(vol.value) || 0));
-  const mini = el('div', { class: 'pq-mini', hidden: true, 'data-mini': '', role: 'dialog', 'aria-label': 'Музыка' }, power, title, el('div', { class: 'r' }, prev, next), el('div', { class: 'v' }, vol, volOut));
+  const mini = el('div', { class: 'pq-mini', hidden: true, 'data-mini': '', role: 'dialog', 'aria-label': 'Music' }, power, title, el('div', { class: 'r' }, prev, next), el('div', { class: 'v' }, vol, volOut));
   const root = el('div', {}, el('style', {}, css), btn, mini);
   parent.append(root);
 
   const paint = (v: MusicView): void => {
     btn.classList.toggle('on', v.on);
     btn.classList.toggle('playing', v.playing);
-    btn.title = v.on ? 'Музыка включена' : 'Музыка выключена';
+    btn.title = v.on ? 'Music is on' : 'Music is off';
     power.setAttribute('aria-pressed', String(v.on));
-    power.textContent = `Muzyka: ${v.on ? 'wł.' : 'wył.'}`;
+    power.textContent = `Music: ${v.on ? 'on' : 'off'}`;
     const t = trackById(v.track);
-    title.replaceChildren(`♪ ${t.pl}`, el('small', {}, v.muted && v.on ? `${t.ru} · звук выключен ссылкой` : t.ru));
+    title.replaceChildren(`♪ ${t.name}`, v.muted && v.on ? el('small', {}, 'sound is muted by the link') : '');
     if (doc.activeElement !== vol) vol.value = String(v.volume);
     volOut.textContent = `${v.volume}%`;
   };
@@ -81,7 +81,7 @@ export function mountMusicHud(parent: HTMLElement, music: MusicControl, o: { bus
     if (open && e.target instanceof Node && !mini.contains(e.target) && !btn.contains(e.target)) setOpen(false);
   };
   doc.addEventListener('click', onDoc, true);
-  // Открылся экран (настройки, словарь, радио): мини-панель уходит.
+  // Открылся экран (настройки, Handbook, радио): мини-панель уходит.
   const offInput = bus.on('world:input', ({ enabled }) => {
     if (!enabled) setOpen(false);
   });

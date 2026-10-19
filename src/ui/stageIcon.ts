@@ -1,16 +1,15 @@
-// Иконки стадий для DOM (словарь): кадры 16×16 `icon_*` из атласа `public/atlas/custom.png`.
+// Иконки стадий для DOM (справочник): кадры 16×16 `icon_*` из атласа `public/atlas/custom.png`.
 // Координаты берутся из `custom.json` (тест сверяет, что они не разъехались после `npm run sprites`).
 import type { ItemInfo } from '../types/farm';
 import { el } from './dom';
 
-export const ATLAS_SIZE = { w: 256, h: 1488 } as const;
-export type IconKey = 'icon_seed' | 'icon_sprout' | 'icon_bush' | 'icon_ripe' | 'icon_overripe';
+export const ATLAS_SIZE = { w: 256, h: 576 } as const;
+export type IconKey = 'icon_seed' | 'icon_sprout' | 'icon_bush' | 'icon_ripe';
 export const ICON_FRAMES: Record<IconKey, readonly [number, number]> = {
-  icon_seed: [235, 273],
-  icon_sprout: [1, 291],
-  icon_bush: [181, 273],
-  icon_ripe: [217, 273],
-  icon_overripe: [199, 273],
+  icon_seed: [1, 291],
+  icon_sprout: [19, 291],
+  icon_bush: [199, 273],
+  icon_ripe: [235, 273],
 };
 
 export const STAGE_ICON_CSS = `
@@ -18,7 +17,7 @@ export const STAGE_ICON_CSS = `
 .pq-sico.dim { opacity: .55; }
 `;
 
-/** (кадры `icon_*` рисует арт, P1c) Какой кадр показывает элемент: семя, росток, куст; в банке (выращено) — урожай; перезрело — увядшее. null — ничего. */
+/** Какой кадр показывает элемент: семя, росток, куст; выучено — урожай. null — не посажено. */
 export function iconKeyOf(i: Pick<ItemInfo, 'status' | 'stage'>): IconKey | null {
   if (i.status === 'new') return null;
   if (i.status === 'grown') return 'icon_ripe';
@@ -31,10 +30,8 @@ export function iconKeyOf(i: Pick<ItemInfo, 'status' | 'stage'>): IconKey | null
       return 'icon_bush';
     case 'ripe':
       return 'icon_ripe';
-    case 'overripe':
-      return 'icon_overripe';
     default:
-      return 'icon_seed'; // в мешке: посажено, ждёт грядку
+      return 'icon_seed';
   }
 }
 

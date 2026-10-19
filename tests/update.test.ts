@@ -58,9 +58,9 @@ describe('политика обновления', () => {
     bus.emit('app:update', {});
     bus.emit('app:update', {});
     expect(root.querySelectorAll('[data-update]')).toHaveLength(1);
-    expect(root.querySelector('[data-update] span')?.textContent).toContain('Новая версия');
+    expect(root.querySelector('[data-update] span')?.textContent).toContain('New version');
     const b = root.querySelector<HTMLButtonElement>('[data-update] button')!;
-    expect(b.textContent).toContain('Обновить');
+    expect(b.textContent).toContain('Update');
     b.click();
     expect(reloads).toEqual([1]);
     expect(root.querySelector('[data-update]')).toBeNull();
@@ -75,12 +75,8 @@ describe('политика обновления', () => {
     // Опции Workbox вынесены в tools/lib/pwa.ts (тот же конфиг уходит в сборку).
     expect(cfg).toMatch(/workbox: workboxOptions\(\)/);
     expect(workboxOptions()).toMatchObject({ skipWaiting: true, clientsClaim: true });
-    // Картины праздников — runtime-кэш, а не precache (jpg нет в globPatterns).
-    const opts = workboxOptions();
-    expect(opts.globPatterns.join(' ')).not.toMatch(/jpg/);
-    const swieta = opts.runtimeCaching.find((r) => r.options.cacheName === 'pq-swieta')!;
-    expect(swieta.urlPattern({ url: new URL('https://x/polski-quest/swieta/wigilia.jpg') })).toBe(true);
-    expect(swieta.urlPattern({ url: new URL('https://x/polski-quest/audio/a.m4a') })).toBe(false);
+    // Музыка не в precache (m4a нет в globPatterns), база — /lido-onboarding/.
+    expect(workboxOptions().globPatterns.join(' ')).not.toMatch(/m4a/);
     expect(readFileSync('src/main.ts', 'utf8')).toMatch(/registerPwa\(/);
   });
 });

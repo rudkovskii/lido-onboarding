@@ -1,22 +1,21 @@
 // Музыка (V11b): список треков, настройки и интерфейс плеера. Чистые данные и функции, без браузера.
 // Сам плеер (HTMLAudio) — `platform/music.ts`; экраны — `ui/radio.ts`, `ui/radioHud.ts`, `ui/settings.ts`.
 
-export interface Track {
+export interface MusicTrack {
   /** Имя файла без расширения: `public/music/<id>.m4a`. */
   id: string;
-  /** Название по-польски и по-русски (мелко). */
-  pl: string;
-  ru: string;
+  /** Название трека. */
+  name: string;
 }
 
 /** Плейлист. Источники, авторы и лицензии — `CREDITS.md`. */
-export const TRACKS: readonly Track[] = [
-  { id: 'poranek', pl: 'Poranek', ru: 'Утро' },
-  { id: 'farma', pl: 'Na farmie', ru: 'На ферме' },
-  { id: 'dzien', pl: 'Dzień', ru: 'День' },
-  { id: 'laki', pl: 'Łąki', ru: 'Луга' },
-  { id: 'wieczor', pl: 'Wieczór', ru: 'Вечер' },
-  { id: 'deszcz', pl: 'Deszcz', ru: 'Дождь' },
+export const TRACKS: readonly MusicTrack[] = [
+  { id: 'morning', name: 'Morning' },
+  { id: 'campus', name: 'On the campus' },
+  { id: 'day', name: 'Daytime' },
+  { id: 'meadows', name: 'Meadows' },
+  { id: 'evening', name: 'Evening' },
+  { id: 'rain', name: 'Rain' },
 ];
 
 export type MusicRepeat = 'all' | 'one';
@@ -30,14 +29,14 @@ export interface MusicSettings {
   track: string;
   /** По кругу (весь плейлист) или один трек. */
   repeat: MusicRepeat;
-  /** Играть по всей ферме (и в мини-играх); выкл — только в доме. */
+  /** Играть по всему кампусу (и в мини-играх); выкл — только в доме. */
   everywhere: boolean;
 }
 
 export const MUSIC_VOLUME_DEFAULT = 50;
 export const MUSIC_DEFAULT: MusicSettings = { on: false, volume: MUSIC_VOLUME_DEFAULT, track: TRACKS[0]!.id, repeat: 'all', everywhere: true };
 
-export const trackById = (id: string): Track => TRACKS.find((t) => t.id === id) ?? TRACKS[0]!;
+export const trackById = (id: string): MusicTrack => TRACKS.find((t) => t.id === id) ?? TRACKS[0]!;
 
 /** Сосед по кругу: `dir` = 1 вперёд, -1 назад. */
 export function stepTrack(id: string, dir: 1 | -1): string {

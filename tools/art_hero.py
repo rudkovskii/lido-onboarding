@@ -1,7 +1,6 @@
-"""Герой по фото Шэфа: 16×32, 4 стороны × 3 кадра, портрет 32×32.
+"""Герой: безымянный новичок (не реальный человек), 16×32, 4 стороны × 3 кадра, портрет 32×32.
 
-Короткие тёмно-русые волосы с зачёсом вверх, короткая борода, светло-голубая рубашка, тёмно-синий пиджак и брюки,
-коричневый ремень и ботинки. Голова — одна группа (без швов), руки отдельной группой, ботинки отдельной.
+Тёмные короткие волосы, без бороды, бирюзовая худи поверх белой футболки, серые брюки, белые кроссовки. Голова — одна группа (без швов), руки отдельной группой, ботинки отдельной.
 Профиль (left, right = зеркало) нарисован вручную тонами палитры (HEAD_SIDE, TORSO_SIDE, ARM_SIDE, LEGS_SIDE): голова 3/4
 в духе SDV, рука против ближней ноги, в шаге корпус опускается на 1 px.
 """
@@ -10,9 +9,9 @@ from __future__ import annotations
 from art_core import Cv, Sheet, P, emit, single
 
 PARTS = {
-    'hair': P('hair', r=3, g='head'), 'skin': P('skin', r=2, g='head'), 'beard': P('beard', r=2, g='head'),
-    'shirt': P('shirt', r=2, g='torso'), 'blazer': P('blazer', r=3, g='torso'), 'belt': P('belt', r=1, g='torso'),
-    'sleeve': P('blazer', r=2, g='sleeve'), 'hand': P('skin', r=1, g='hand'),
+    'hair': P('hair', r=3, g='head'), 'skin': P('skin', r=2, g='head'),
+    'shirt': P('shirt', r=2, g='torso'), 'hoodie': P('hoodie', r=3, g='torso'), 'belt': P('belt', r=1, g='torso'),
+    'sleeve': P('hoodie', r=2, g='sleeve'), 'hand': P('skin', r=1, g='hand'),
     'trouser': P('trouser', r=3, g='legs'), 'boot': P('boot', r=1, g='boot'),
     'handf': P('skin', flat=2, g='hand'), 'can': P('tin', r=2, g='can'), 'sack': P('sack', r=2, g='sack'), 'tie': P('belt', flat=2, g='tie'),
 }
@@ -41,8 +40,6 @@ def head_front(c: Cv) -> None:
     c.ell(8, 5.6, 5.5, 4.5, 'hair')
     c.ell(8.8, 3.4, 4.0, 2.5, 'hair')
     c.fill(lambda x, y: ((x - 8) / 5.2) ** 2 + ((y - 9.2) / 5.4) ** 2 <= 1 and y > 7.2 and 4.7 < x < 11.3, 'skin', only=['hair'])
-    c.poly([[3.5, 10.2], [4.5, 13.2], [8, 15.0], [11.5, 13.2], [12.5, 10.2], [11.4, 11.8], [8, 12.7], [4.6, 11.8]], 'beard', only=['skin'])
-    c.rect(5.8, 11.0, 4.4, 1.0, 'beard', only=['skin'])
     c.dots([5, 9, 10, 9], 'ink')
     c.dots([7, 12, 8, 12], 'mouth')
 
@@ -52,9 +49,9 @@ def hero_down(step: int, arms=None, post=None) -> Cv:
     legs_front(c, step)
     c.rect(4.8, 22.0, 6.4, 1.8, 'belt')
     c.rect(4.2, 15.0, 7.6, 7.2, 'shirt')
-    c.poly([[2.8, 16.2], [4.4, 14.6], [6.4, 14.6], [7.2, 20.4], [6.6, 23.9], [3.2, 23.9]], 'blazer')
-    c.poly([[13.2, 16.2], [11.6, 14.6], [9.6, 14.6], [8.8, 20.4], [9.4, 23.9], [12.8, 23.9]], 'blazer')
-    c.dot(8, 22.6, 'gold.3')
+    c.poly([[2.8, 16.2], [4.4, 14.6], [6.4, 14.6], [7.2, 20.4], [6.6, 23.9], [3.2, 23.9]], 'hoodie')
+    c.poly([[13.2, 16.2], [11.6, 14.6], [9.6, 14.6], [8.8, 20.4], [9.4, 23.9], [12.8, 23.9]], 'hoodie')
+    c.dot(8, 22.6, 'shirt.3')
     (arms or arms_front)(c, step)
     c.rect(6.2, 13.4, 3.6, 2.2, 'skin')
     head_front(c)
@@ -66,7 +63,7 @@ def hero_down(step: int, arms=None, post=None) -> Cv:
 def hero_up(step: int, arms=None, post=None) -> Cv:
     c = Cv(16, 32, PARTS)
     legs_front(c, step)
-    c.poly([[2.8, 16.2], [4.4, 14.6], [11.6, 14.6], [13.2, 16.2], [12.8, 23.9], [3.2, 23.9]], 'blazer')
+    c.poly([[2.8, 16.2], [4.4, 14.6], [11.6, 14.6], [13.2, 16.2], [12.8, 23.9], [3.2, 23.9]], 'hoodie')
     (arms or arms_front)(c, step)
     c.rect(6.2, 13.2, 3.6, 2.2, 'skin')
     c.ell(8, 9.2, 5.2, 5.4, 'skin')
@@ -74,7 +71,7 @@ def hero_up(step: int, arms=None, post=None) -> Cv:
     c.ell(8, 7.6, 5.5, 6.4, 'hair')
     c.ell(8.0, 3.4, 4.2, 2.5, 'hair')
     c.rect(4.6, 11.6, 6.8, 2.2, 'skin', only=['hair'])
-    c.vline(8, 17, 23, 'blazer.1')
+    c.vline(8, 17, 23, 'hoodie.1')
     if post:
         post(c)
     return c
@@ -98,12 +95,12 @@ TONES = {
     'k': ('hair', 'hair.4'), 'K': ('hair', 'hair.3'), 'H': ('hair', 'hair.2'), 'h': ('hair', 'hair.1'), 'D': ('hair', 'hair.0'),
     'l': ('skin', 'skin.4'), 'L': ('skin', 'skin.3'), 'S': ('skin', 'skin.2'), 's': ('skin', 'skin.1'), 'x': ('skin', 'skin.0'),
     'C': ('skin', 'cheek'), 'E': ('skin', 'ink'), 'W': ('skin', 'eye_white'), 'M': ('skin', 'mouth'),
-    'n': ('beard', 'beard.3'), 'B': ('beard', 'beard.2'), 'b': ('beard', 'beard.1'), 'd': ('beard', 'beard.0'),
-    't': ('blazer', 'blazer.4'), 'r': ('blazer', 'blazer.3'), 'e': ('blazer', 'blazer.2'), 'w': ('blazer', 'blazer.1'), 'q': ('blazer', 'blazer.0'),
+    'n': ('skin', 'skin.3'), 'B': ('skin', 'skin.2'), 'b': ('skin', 'skin.1'), 'd': ('skin', 'skin.0'),
+    't': ('hoodie', 'hoodie.4'), 'r': ('hoodie', 'hoodie.3'), 'e': ('hoodie', 'hoodie.2'), 'w': ('hoodie', 'hoodie.1'), 'q': ('hoodie', 'hoodie.0'),
     'v': ('shirt', 'shirt.4'), 'g': ('shirt', 'shirt.3'), 'f': ('shirt', 'shirt.2'),
     'P': ('trouser', 'trouser.4'), 'p': ('trouser', 'trouser.3'), 'o': ('trouser', 'trouser.2'), 'i': ('trouser', 'trouser.1'), 'u': ('trouser', 'trouser.0'),
     'G': ('boot', 'boot.3'), 'J': ('boot', 'boot.2'), 'j': ('boot', 'boot.1'), 'Y': ('boot', 'boot.0'),
-    'V': ('belt', 'belt.2'), 'c': ('belt', 'belt.1'), 'Q': ('belt', 'gold.3'),
+    'V': ('belt', 'belt.2'), 'c': ('belt', 'belt.1'), 'Q': ('belt', 'shirt.3'),
 }
 
 
@@ -239,7 +236,7 @@ def hero_left(step: int, arms=None, post=None) -> Cv:
 def portrait() -> Cv:
     """32×32: голова и плечи для UI."""
     c = Cv(32, 32, PARTS)
-    c.poly([[1, 32], [3, 25.4], [8, 22.6], [24, 22.6], [29, 25.4], [31, 32]], 'blazer')
+    c.poly([[1, 32], [3, 25.4], [8, 22.6], [24, 22.6], [29, 25.4], [31, 32]], 'hoodie')
     c.poly([[12, 22.6], [20, 22.6], [17.6, 32], [14.4, 32]], 'shirt')
     c.rect(12.4, 19.6, 7.2, 4.0, 'skin')
     c.ell(16, 13.2, 9.4, 9.8, 'skin')
@@ -247,8 +244,6 @@ def portrait() -> Cv:
     c.ell(16, 8.0, 10.2, 8.0, 'hair')
     c.ell(17.6, 3.4, 8.0, 3.2, 'hair')
     c.fill(lambda x, y: ((x - 16) / 9.4) ** 2 + ((y - 13.2) / 9.8) ** 2 <= 1 and y > 10.6 and 8.4 < x < 23.6, 'skin', only=['hair'])
-    c.poly([[6.8, 15.0], [8.6, 20.6], [16, 24.2], [23.4, 20.6], [25.2, 15.0], [23.0, 18.6], [16, 20.6], [9.0, 18.6]], 'beard', only=['skin'])
-    c.rect(11.4, 17.6, 9.2, 1.8, 'beard', only=['skin'])
     c.orect(10, 13, 4, 2, 'eye_white'); c.orect(18, 13, 4, 2, 'eye_white')
     c.orect(11, 13, 2, 2, 'ink'); c.orect(19, 13, 2, 2, 'ink')
     c.orect(10, 11, 4, 1, 'hair.1'); c.orect(18, 11, 4, 1, 'hair.1')

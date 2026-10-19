@@ -1,7 +1,7 @@
-// Путь к A1 (V11c): праздничная карточка нового уровня (стиль Stardew) и экран «Путь к A1» с лестницей из 20 уровней (номера в пиксельных плашках).
+// Путь к Onboarded: праздничная карточка нового уровня (стиль Stardew) и экран «Path to Onboarded» с лестницей из 8 уровней.
 // Звук нового уровня играет `connectSfx` на том же событии `hud:xp {up}` (под выключателем звука, с `?mute=1` не подключён).
 import { bus as globalBus, type Bus } from '../systems/bus';
-import { A1_LEVEL, SUBLEVELS, SUB_COUNT, type Sublevel } from '../systems/xp';
+import { DONE_LEVEL, SUBLEVELS, SUB_COUNT, type Sublevel } from '../systems/xp';
 import type { BusEvents } from '../types/bus';
 import type { FarmApi } from '../types/farm';
 import { el } from './dom';
@@ -32,17 +32,15 @@ ${BADGE_CSS}
   font-weight: 800; font-size: 13px; letter-spacing: .4px; text-transform: uppercase; }
 .pq-lvlcard .ico { font-size: 46px; line-height: 1.15; margin-top: 10px; animation: pq-lvl-bob 1.4s ease-in-out infinite; }
 .pq-lvlcard h3 { margin: 0; font-size: 26px; font-weight: 800; }
-.pq-lvlcard .ru { opacity: .75; font-size: 15px; }
 .pq-lvlcard .plus { margin: 6px 0 2px; font-weight: 800; color: #4a6b2a; }
 .pq-lvlcard .note { font-style: italic; opacity: .85; }
-.pq-lvlcard .gift { margin-top: 8px; padding: 6px 8px; background: var(--pq-wood); color: var(--pq-cream); border-radius: 6px; font-weight: 700; font-size: 14px; }
 @keyframes pq-lvl-pop { from { opacity: 0; transform: translateX(-50%) translateY(-18px) scale(.8); } to { opacity: 1; transform: translateX(-50%) translateY(0) scale(1); } }
 @keyframes pq-lvl-bob { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-4px); } }
 @media (prefers-reduced-motion: reduce) { .pq-lvlcard, .pq-lvlcard .ico { animation: none; } }
 `;
 
 /** Плашка: номер уровня («0» — старт), для A1 — кубок. */
-const badge = (l: Sublevel, cls = ''): HTMLElement => el('span', { class: `pq-bd ${cls}`.trim(), 'aria-hidden': 'true' }, l.n > SUB_COUNT ? '🏆' : String(l.n));
+const badge = (l: Sublevel, cls = ''): HTMLElement => el('span', { class: `pq-bd ${cls}`.trim(), 'aria-hidden': 'true' }, l.n > SUB_COUNT ? '🎉' : String(l.n));
 
 export interface LevelUpCard {
   readonly isOpen: boolean;
@@ -50,17 +48,15 @@ export interface LevelUpCard {
   dispose(): void;
 }
 
-/** Содержимое карточки уровня `n` (0…21) — отдельно, чтобы тесты не ждали таймеров. */
+/** Содержимое карточки уровня `n` (0…9) — отдельно, чтобы тесты не ждали таймеров. */
 export function cardContent(n: number): HTMLElement[] {
-  const l: Sublevel = n > SUB_COUNT ? A1_LEVEL : SUBLEVELS[Math.max(0, n)]!;
-  const a1 = n > SUB_COUNT;
+  const l: Sublevel = n > SUB_COUNT ? DONE_LEVEL : SUBLEVELS[Math.max(0, n)]!;
+  const done = n > SUB_COUNT;
   return [
-    el('div', { class: 'rib' }, a1 ? 'Вся база выращена!' : 'Новый уровень!'),
+    el('div', { class: 'rib' }, done ? 'Everything learned!' : 'New level!'),
     el('div', { class: 'ico', 'aria-hidden': 'true' }, badge(l, 'big')),
-    el('h3', { 'data-card-name': '' }, l.pl),
-    el('div', { class: 'ru' }, a1 ? 'Уровень A1' : l.ru),
-    el('div', { class: 'plus', 'data-card-plus': '' }, a1 ? 'Вся база выращена' : `${n} из ${SUB_COUNT}`),
-    ...(a1 ? [el('div', { class: 'gift', 'data-card-gift': '' }, 'Открыто: золотая лейка')] : []),
+    el('h3', { 'data-card-name': '' }, l.label),
+    el('div', { class: 'plus', 'data-card-plus': '' }, done ? 'Welcome aboard' : `${n} of ${SUB_COUNT}`),
   ];
 }
 
@@ -133,41 +129,34 @@ export interface PathScreen {
   readonly isOpen: boolean;
 }
 
-const pts = (x: number): string => String(Math.floor(x));
-const plural = (n: number, one: string, few: string, many: string): string => {
-  const a = n % 100;
-  const b = n % 10;
-  return a > 10 && a < 20 ? many : b === 1 ? one : b >= 2 && b <= 4 ? few : many;
-};
+const plural = (n: number, one: string, many: string): string => (n === 1 ? one : many);
 
-/** Экран «Путь к A1»: где ты, сколько выращено из скольких, лестница из 20 уровней и честная строка про объём A1. */
+/** Экран «Path to Onboarded»: где ты, сколько выучено из скольких и лестница из 8 уровней. */
 export function mountPath(parent: HTMLElement, api: FarmApi, bus?: Bus<BusEvents>): PathScreen {
-  const panel = createPanel({ title: 'Путь к A1', bus });
+  const panel = createPanel({ title: 'Path to Onboarded', bus });
   const content = el('div', { class: 'path' });
-  const closeBtn = el('button', { type: 'button', class: 'pq-btn', 'data-done': '', ...nav('done', 'v', 'done'), onclick: () => panel.close() }, 'Закрыть');
+  const closeBtn = el('button', { type: 'button', class: 'pq-btn', 'data-done': '', ...nav('done', 'v', 'done'), onclick: () => panel.close() }, 'Close');
   panel.body.append(el('style', {}, pathCss), content, el('div', { style: 'margin-top:12px' }, closeBtn));
   parent.append(panel.root);
 
   function render(): void {
     const s = api.stats();
     const p = s.path;
-    const b = s.base;
     const pct = Math.floor(p.pct * 100);
     const hero = el(
       'div',
       { class: 'path-hero' },
-      el('div', { class: 'top' }, badge(SUBLEVELS[Math.min(p.sub, SUB_COUNT + 1)] ?? A1_LEVEL, 'big cur'), el('div', {}, el('div', { class: 'nm', 'data-path-name': '' }, p.a1 ? p.pl : p.sub === 0 ? p.ru : `Уровень ${p.sub} из ${SUB_COUNT}`), el('div', { class: 'ru' }, p.a1 ? 'Вся база выращена' : p.sub === 0 ? 'Пока ни одного очка' : p.pl))),
+      el('div', { class: 'top' }, badge(SUBLEVELS[Math.min(p.sub, SUB_COUNT + 1)] ?? DONE_LEVEL, 'big cur'), el('div', {}, el('div', { class: 'nm', 'data-path-name': '' }, p.done ? p.label : p.sub === 0 ? 'Start' : `Level ${p.sub} of ${SUB_COUNT}`), el('div', { class: 'ru' }, p.done ? 'Every card is learned' : p.sub === 0 ? 'No points yet' : p.label))),
       el('div', { class: 'path-bar', role: 'progressbar', 'aria-valuenow': pct, 'aria-valuemin': 0, 'aria-valuemax': 100 }, el('i', { style: `width:${pct}%` })),
-      el('div', { class: 'path-hint', 'data-path-pct': '' }, p.a1 ? 'Вся база выращена: A1 достигнут' : `До A1: ${pct}% · ${pts(p.points)} из ${b.total} очков`),
-      p.toNext !== null ? el('div', { class: 'path-hint', 'data-path-next': '' }, `До ${p.nextTo}: ещё ${p.toNext} ${plural(p.toNext, 'очко', 'очка', 'очков')}`) : null,
+      el('div', { class: 'path-hint', 'data-path-pct': '' }, p.done ? 'Onboarded: every card is learned' : `To Onboarded: ${pct}% · ${Math.floor(p.points)} of ${s.total} points`),
+      p.toNext !== null ? el('div', { class: 'path-hint', 'data-path-next': '' }, `To ${p.nextTo}: ${p.toNext} more ${plural(p.toNext, 'point', 'points')}`) : null,
     );
     const growing = p.points - p.grown;
     const rows = el(
       'div',
       { class: 'path-rows' },
-      el('div', { class: 'path-row' }, el('span', {}, 'Слов выращено'), el('b', { 'data-path-words': '' }, `${s.grownWords} из ${b.words}`)),
-      el('div', { class: 'path-row' }, el('span', {}, 'Фраз выращено'), el('b', { 'data-path-phrases': '' }, `${s.grownPhrases} из ${b.phrases}`)),
-      el('div', { class: 'path-row' }, el('span', {}, 'Растёт сейчас'), el('b', {}, growing > 0.05 ? `${s.growing} (≈ ${pts(growing)} оч.)` : String(s.growing))),
+      el('div', { class: 'path-row' }, el('span', {}, 'Cards learned'), el('b', { 'data-path-cards': '' }, `${s.grownTotal} of ${s.total}`)),
+      el('div', { class: 'path-row' }, el('span', {}, 'Growing now'), el('b', {}, growing > 0.05 ? `${s.growing} (about ${Math.floor(growing)} pts)` : String(s.growing))),
     );
     const steps: HTMLElement[] = [];
     const add = (l: Sublevel, from: number | null): void => {
@@ -178,25 +167,23 @@ export function mountPath(parent: HTMLElement, api: FarmApi, bus?: Bus<BusEvents
           { class: `path-step ${cls}`, 'data-step': String(l.n), ...(cls === 'cur' ? { 'aria-current': 'step' } : {}) },
           el('span', { class: 'mk' }, cls === 'done' ? '✓' : cls === 'cur' ? '▶' : '·'),
           badge(l, cls === 'cur' ? 'cur' : cls === 'done' ? 'done' : ''),
-          el('span', { class: 'nm' }, el('b', {}, l.ru), l.n >= 1 && l.n <= SUB_COUNT ? el('span', {}, l.pl) : null),
-          el('span', { class: 'at' }, from === null ? '' : `от ${from} оч.`),
+          el('span', { class: 'nm' }, el('b', {}, l.label)),
+          el('span', { class: 'at' }, from === null ? '' : `from ${from} pts`),
         ),
       );
     };
     add(SUBLEVELS[0]!, null);
     for (let n = 1; n <= SUB_COUNT; n++) add(SUBLEVELS[n]!, s.thresholds[n - 1]!);
-    add(A1_LEVEL, b.total);
+    add(DONE_LEVEL, s.total);
     const ladder = el('ol', { class: 'path-ladder', 'data-ladder': '' }, ...steps);
     content.replaceChildren(
       hero,
       rows,
       ladder,
-      el('div', { class: 'path-note', 'data-path-honest': '' }, `A1 ≈ ${b.words} слов и ${b.phrases} фраз базы, как у экзамена A1 (ориентир 1100–1500 слов). Официального списка слов для польского нет, это международный ориентир.`),
-      el('div', { class: 'path-note' }, `Очки: слово — 1, фраза сборки — 2 (всего ${b.assemble} таких фраз), растущее даёт часть: семечко 0,1, росток 0,3, кустик 0,6. Вся база = ${b.total} очков.`),
+      el('div', { class: 'path-note' }, `Points: a learned card is 1, a growing one gives a part: seed 0.1, sprout 0.3, bush 0.6. Everything learned = ${s.total} points.`),
     );
   }
 
-  /** На открытии: фокус кнопки сам прокрутил бы вниз, поэтому текущий уровень ставим в центр после фокуса (начало пути — наверх). */
   const reveal = (): void => {
     if (api.stats().path.sub < 3) panel.body.scrollTop = 0;
     else (panel.body.querySelector('.path-step.cur') as (HTMLElement & { scrollIntoView?: (o?: unknown) => void }) | null)?.scrollIntoView?.({ block: 'center' });

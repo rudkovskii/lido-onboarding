@@ -52,9 +52,9 @@ export interface DpadOptions {
 
 export function mountDpad(parent: HTMLElement, bus: Bus<BusEvents> = globalBus, opts: DpadOptions = {}): DpadView {
   const arms = (['up', 'down', 'left', 'right'] as const).map((d) => el('div', { class: `arm ${d}` }));
-  const cross = el('div', { class: 'pq-dpad-cross', role: 'group', 'aria-label': 'Крестик управления' }, el('div', { class: 'hub' }), ...arms);
-  const a = el('div', { class: 'pq-dpad-btn pq-dpad-a', role: 'button', 'aria-label': 'A: действие' }, 'A', el('span', { class: 'pq-dpad-cap', 'aria-hidden': 'true' }, 'A · действие'));
-  const b = el('div', { class: 'pq-dpad-btn pq-dpad-b', role: 'button', 'aria-label': 'B: назад' }, 'B', el('span', { class: 'pq-dpad-cap', 'aria-hidden': 'true' }, 'B · назад'));
+  const cross = el('div', { class: 'pq-dpad-cross', role: 'group', 'aria-label': 'Movement pad' }, el('div', { class: 'hub' }), ...arms);
+  const a = el('div', { class: 'pq-dpad-btn pq-dpad-a', role: 'button', 'aria-label': 'A: action' }, 'A', el('span', { class: 'pq-dpad-cap', 'aria-hidden': 'true' }, 'A · action'));
+  const b = el('div', { class: 'pq-dpad-btn pq-dpad-b', role: 'button', 'aria-label': 'B: back' }, 'B', el('span', { class: 'pq-dpad-cap', 'aria-hidden': 'true' }, 'B · back'));
   const root = el('div', { class: 'pq-dpad', hidden: true, 'data-side': 'left', 'data-labels': '' }, el('style', {}, css), cross, a, b);
   parent.append(root);
   // Флаг спрашиваем при показе, не при монтировании: прогресс к этому моменту ещё грузится.

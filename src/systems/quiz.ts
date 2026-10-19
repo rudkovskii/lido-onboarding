@@ -1,53 +1,24 @@
-// Задания мини-игр (ФЕРМА.md, решение 9): чистые функции. Случай приходит параметром (`rand`).
-//   1 Polski → Rosyjski: польское слово, выбор из 4 русских (отвлекающие из той же темы, лучше той же части речи);
-//   2 Rosyjski → Polski: русское слово, выбор из 4 польских (ввода «напиши сам» тут больше нет: он ушёл в игру 5, 19.10);
-//   Короткие фразы (меньше 3 плиток, `canAssemble`) растут через игры 1 и 2 как слова: сборка из 1–2 плиток бессмысленна.
-//   3 Złóż zdanie po polsku: русская фраза, плитки tiles_pl + distract_pl;
-//   4 Złóż zdanie po rosyjsku: польская фраза, плитки tiles_ru + distract_ru;
-//   5 Ułóż słowo: слово из плиток-букв (`systems/spell.ts`) в сторону `dir` (rp — по-польски, pr — по-русски) или ввод с клавиатуры.
-import type { Phrase, Word } from '../types/content';
-import type { GameMode, Side } from '../types/farm';
-import type { Verdict } from './answer';
-import { gradeSpell, primaryRu, ruSpellable, ruVariants, spellTarget, spellTiles, type SpellCell } from './spell';
+// Задания мини-игр: чистые функции, случай приходит параметром (`rand`). Каждое задание привязано к карточке (`id`): верный ответ растит её.
+//   1 Pool Rules (трек policies): чаще сценарий (ситуация → OK / Violation / Ask first), реже «правило → выбери формулировку из 4»;
+//   2 Who's Who (трек structure): вопрос из structureQuestions (верный + 3 неверных) или карточка front → back / back → front;
+//   3 Staking 101 (трек glossary): термин → смысл и смысл → термин, выбор из 4.
+import type { Card, TrackId, Verdict } from '../types/content';
+import { CARD_BY_ID, MODE_TRACK, SCENARIOS, STRUCTURE_QUESTIONS, cardsOf, type GameMode } from './content';
+
+export const VERDICT_LABEL: Record<Verdict, string> = { ok: 'OK', violation: 'Violation', ask: 'Ask first' };
+export const VERDICTS: readonly Verdict[] = ['ok', 'violation', 'ask'];
+
+/** Откуда задание: сценарий, вопрос про структуру или карточка (вперёд/назад). */
+export type QuestionSource = 'scenario' | 'structure' | 'recall' | 'reverse';
 
 /**
- * Задание игры 5: `dir` — сторона (rp: русское → собрать польское, pr: польское → собрать русское), `answer` — как показать
- * правильный ответ, `accept` — что принять при вводе, `units` — плитки ответа по порядку, `tiles` — они же с ловушками
- * вперемешку, `layout` — ряд ответа (слоты и неподвижные знаки). Экран ставит `hinted` (взята «первая буква») и `typed`
- * (ответ напечатан, а не собран) перед отправкой.
- */
-export interface SpellQuestion {
-  mode: GameMode;
-  id: string;
-  kind: 'spell';
-  dir: Side;
-  prompt: string;
-  promptLang: 'pl' | 'ru';
-  answer: string;
-  accept: string[];
-  units: string[];
-  tiles: string[];
-  layout: SpellCell[];
-  hinted?: boolean;
-  typed?: boolean;
-}
-
-/**
- * `progress` — что осталось растению до урожая («ещё 1 полив до ростка»), его дописывает ферма (P2a).
- * `reverse` — задание «наоборот»: в игре 2 пришло с польского (mode 1), в игре 1 — на польский (mode 2), всегда выбором;
- * в игре 5 — сборка в другую сторону (`dir`).
+ * `progress` — что осталось растению до следующей стадии, его дописывает ферма.
+ * choice: выбор из 4 строк; scenario: три крупные кнопки OK / Violation / Ask first.
  */
 export type Question = (
-  | { mode: GameMode; id: string; kind: 'choice'; prompt: string; promptLang: 'pl' | 'ru'; options: string[]; answer: string }
-  | { mode: GameMode; id: string; kind: 'tiles'; prompt: string; promptLang: 'pl' | 'ru'; tiles: string[]; answer: string[] }
-  | SpellQuestion
-) & { progress?: string; reverse?: boolean };
-
-/** Минимум плиток, чтобы фразу имело смысл собирать (игры 3 и 4). */
-export const MIN_TILES = 3;
-
-/** Фраза годится для сборки из плиток в обе стороны. Короткие («Dzień dobry.») идут в игры 1 и 2. */
-export const canAssemble = (p: Pick<Phrase, 'tiles_pl' | 'tiles_ru'>): boolean => p.tiles_pl.length >= MIN_TILES && p.tiles_ru.length >= MIN_TILES;
+  | { mode: GameMode; id: string; kind: 'choice'; source: Exclude<QuestionSource, 'scenario'>; prompt: string; hint: string; options: string[]; answer: string }
+  | { mode: GameMode; id: string; kind: 'scenario'; source: 'scenario'; scenarioId: string; prompt: string; hint: string; verdict: Verdict; explain: string }
+) & { progress?: string };
 
 export function shuffle<T>(xs: readonly T[], rand: () => number): T[] {
   const a = [...xs];
@@ -58,122 +29,80 @@ export function shuffle<T>(xs: readonly T[], rand: () => number): T[] {
   return a;
 }
 
-/** 3 правдоподобных отвлекающих для слова: та же тема и часть речи → та же тема → та же часть речи. */
-export function distractors(w: Word, words: readonly Word[], field: 'pl' | 'ru', rand: () => number, n = 3): string[] {
-  const own = w[field].trim().toLowerCase();
+const norm = (s: string): string => s.trim().toLowerCase();
+
+/** 3 отвлекающих для карточки: поле `field` других карточек того же трека (без повторов текста). */
+export function distractors(card: Card, field: 'front' | 'back', rand: () => number, n = 3, pool: readonly Card[] = cardsOf(card.track)): string[] {
+  const seen = new Set([norm(card[field])]);
   const out: string[] = [];
-  const seen = new Set([own]);
-  const tiers = [
-    words.filter((x) => x.topic === w.topic && x.pos === w.pos),
-    words.filter((x) => x.topic === w.topic),
-    words.filter((x) => x.pos === w.pos),
-    words,
-  ];
-  for (const tier of tiers) {
-    for (const x of shuffle(tier, rand)) {
-      if (out.length >= n) return out;
-      const v = x[field].trim();
-      const k = v.toLowerCase();
-      if (x.id === w.id || seen.has(k)) continue;
-      seen.add(k);
-      out.push(v);
-    }
+  for (const x of shuffle(pool, rand)) {
+    if (out.length >= n) break;
+    const v = x[field].trim();
+    if (x.id === card.id || seen.has(norm(v))) continue;
+    seen.add(norm(v));
+    out.push(v);
   }
   return out;
 }
 
-/** 3 отвлекающих для фразы: та же тема (короткие рядом с короткими), потом любые. */
-export function phraseDistractors(p: Phrase, phrases: readonly Phrase[], field: 'pl' | 'ru', rand: () => number, n = 3): string[] {
-  const own = p[field].trim().toLowerCase();
-  const out: string[] = [];
-  const seen = new Set([own]);
-  const short = (x: Phrase): boolean => !canAssemble(x);
-  for (const tier of [phrases.filter((x) => x.topic === p.topic && short(x)), phrases.filter((x) => x.topic === p.topic), phrases.filter(short), phrases]) {
-    for (const x of shuffle(tier, rand)) {
-      if (out.length >= n) return out;
-      const k = x[field].trim().toLowerCase();
-      if (x.id === p.id || seen.has(k)) continue;
-      seen.add(k);
-      out.push(x[field].trim());
-    }
-  }
-  return out;
+/** Выбор front → back или back → front. */
+export function recallQuestion(mode: GameMode, card: Card, dir: 'fb' | 'bf', rand: () => number): Question {
+  const [from, to] = dir === 'fb' ? (['front', 'back'] as const) : (['back', 'front'] as const);
+  const options = shuffle([card[to], ...distractors(card, to, rand)], rand);
+  const hints: Record<TrackId, [string, string]> = {
+    policies: ['Pick the rule that goes with this topic', 'Which topic does this rule belong to?'],
+    structure: ['Pick the right description', 'Pick the right name'],
+    glossary: ['Pick the meaning', 'Pick the term'],
+  };
+  return {
+    mode,
+    id: card.id,
+    kind: 'choice',
+    source: dir === 'fb' ? 'recall' : 'reverse',
+    prompt: card[from],
+    hint: hints[card.track][dir === 'fb' ? 0 : 1],
+    options,
+    answer: card[to],
+  };
 }
 
-/** Слово годится для игры 5 в эту сторону: по-польски — любое, по-русски — если первое значение собирается из букв. */
-export const canSpell = (w: Pick<Word, 'ru'>, dir: Side): boolean => dir === 'rp' || ruSpellable(w.ru);
+export interface MakeOpts {
+  /** Уже заданные в этой сессии сценарии и вопросы (id): свежие предпочитаются, чтобы карточка не крутила одно и то же. */
+  seen?: ReadonlySet<string>;
+}
 
-/** Собрать задание. `dir` — сторона игры 5 (по умолчанию по-польски). */
-export function makeQuestion(
-  mode: GameMode,
-  id: string,
-  db: { word(id: string): Word | undefined; phrase(id: string): Phrase | undefined; words: readonly Word[]; phrases?: readonly Phrase[] },
-  rand: () => number,
-  opts: { dir?: Side } = {},
-): Question | null {
-  if (mode === 5) {
-    const w = db.word(id);
-    const dir = opts.dir ?? 'rp';
-    if (!w || !canSpell(w, dir)) return null;
-    const lang = dir === 'rp' ? 'pl' : 'ru';
-    const t = spellTarget(dir === 'rp' ? w.pl : primaryRu(w.ru), lang);
-    return {
-      mode,
-      id,
-      kind: 'spell',
-      dir,
-      prompt: dir === 'rp' ? w.ru : w.pl,
-      promptLang: dir === 'rp' ? 'ru' : 'pl',
-      answer: t.text,
-      accept: dir === 'rp' ? [w.pl] : ruVariants(w.ru),
-      units: t.units,
-      tiles: spellTiles(t.units, lang, rand),
-      layout: t.layout,
-    };
-  }
-  if (mode === 1 || mode === 2) {
-    const w = db.word(id);
-    if (!w) {
-      // Короткая фраза в играх 1 и 2: как слово, отвлекающие — другие фразы.
-      const p = db.phrase(id);
-      if (!p) return null;
-      const f = mode === 1 ? 'ru' : 'pl';
-      const options = shuffle([p[f], ...phraseDistractors(p, db.phrases ?? [], f, rand)], rand);
-      return { mode, id, kind: 'choice', prompt: mode === 1 ? p.pl : p.ru, promptLang: mode === 1 ? 'pl' : 'ru', options, answer: p[f] };
+/** Собрать задание для карточки `id` в игре `mode`. null — карточки нет или она из другого трека. */
+export function makeQuestion(mode: GameMode, id: string, rand: () => number, opts: MakeOpts = {}): Question | null {
+  const card = CARD_BY_ID.get(id);
+  if (!card || card.track !== MODE_TRACK[mode]) return null;
+  const seen = opts.seen ?? new Set<string>();
+  if (mode === 1) {
+    const fresh = SCENARIOS.filter((s) => s.card === id && !seen.has(s.id));
+    // Pool Rules: в основном сценарии; когда свежих сценариев по карточке нет — вопрос на вспоминание правила.
+    if (fresh.length && rand() < 0.8) {
+      const s = fresh[Math.floor(rand() * fresh.length)]!;
+      return { mode, id, kind: 'scenario', source: 'scenario', scenarioId: s.id, prompt: s.situation, hint: 'What do you do?', verdict: s.verdict, explain: s.explain };
     }
-    const field = mode === 1 ? 'ru' : 'pl';
-    const options = shuffle([w[field], ...distractors(w, db.words, field, rand)], rand);
-    return { mode, id, kind: 'choice', prompt: mode === 1 ? w.pl : w.ru, promptLang: mode === 1 ? 'pl' : 'ru', options, answer: w[field] };
+    return recallQuestion(mode, card, 'fb', rand);
   }
-  const p = db.phrase(id);
-  if (!p) return null;
-  if (mode === 3) return { mode, id, kind: 'tiles', prompt: p.ru, promptLang: 'ru', tiles: shuffle([...p.tiles_pl, ...p.distract_pl], rand), answer: [...p.tiles_pl] };
-  return { mode, id, kind: 'tiles', prompt: p.pl, promptLang: 'pl', tiles: shuffle([...p.tiles_ru, ...p.distract_ru], rand), answer: [...p.tiles_ru] };
+  if (mode === 2) {
+    const fresh = STRUCTURE_QUESTIONS.filter((q) => q.card === id && !seen.has(q.id));
+    if (fresh.length && rand() < 0.5) {
+      const q = fresh[Math.floor(rand() * fresh.length)]!;
+      return { mode, id, kind: 'choice', source: 'structure', prompt: q.q, hint: 'Pick the answer', options: shuffle([q.a, ...q.wrong], rand), answer: q.a };
+    }
+  }
+  return recallQuestion(mode, card, rand() < 0.5 ? 'fb' : 'bf', rand);
 }
 
 export interface Graded {
   ok: boolean;
-  verdict: Verdict;
   /** Правильный ответ для показа. */
   correct: string;
 }
 
-const normTiles = (xs: readonly string[]): string => xs.map((x) => x.trim().toLowerCase()).join(' ');
-
-/**
- * Проверить ответ: выбор — строка варианта; плитки — порядок; игра 5 — собранное слово (буквы точно) или напечатанное
- * (мягко: без диакритики «почти», орфография R10, `systems/spell.ts`).
- */
-export function grade(q: Question, given: string | readonly string[]): Graded {
-  if (q.kind === 'choice') {
-    const ok = typeof given === 'string' && given.trim() === q.answer.trim();
-    return { ok, verdict: ok ? 'exact' : 'wrong', correct: q.answer };
-  }
-  if (q.kind === 'spell') {
-    const r = gradeSpell(typeof given === 'string' ? given : given.join(''), q.answer, q.accept, q.dir === 'rp' ? 'pl' : 'ru', !!q.typed);
-    return { ...r, correct: q.answer };
-  }
-  const arr = typeof given === 'string' ? given.split(/\s+/).filter(Boolean) : given;
-  const ok = normTiles(arr) === normTiles(q.answer);
-  return { ok, verdict: ok ? 'exact' : 'wrong', correct: q.answer.join(' ') };
+/** Проверить ответ: выбор — строка варианта; сценарий — `ok` / `violation` / `ask`. */
+export function grade(q: Question, given: string): Graded {
+  if (q.kind === 'scenario') return { ok: given === q.verdict, correct: VERDICT_LABEL[q.verdict] };
+  return { ok: given.trim() === q.answer.trim(), correct: q.answer };
 }

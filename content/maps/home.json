@@ -1,6 +1,6 @@
 {
  "id": "home",
- "name": "Дом",
+ "name": "Onboarding HQ",
  "size": [
   12,
   9
@@ -100,7 +100,7 @@
    "type": "prop",
    "id": "bed",
    "use": "bed",
-   "label": "Łóżko · Кровать",
+   "label": "Bed · Progress",
    "sprite": "bed",
    "at": [
     3,
@@ -116,7 +116,7 @@
    "type": "prop",
    "id": "shelf",
    "use": "shelf",
-   "label": "Półka · Банки",
+   "label": "Learned shelf",
    "sprite": "shelf",
    "at": [
     5,
@@ -132,7 +132,7 @@
    "type": "prop",
    "id": "desk",
    "use": "desk",
-   "label": "Słownik · Словарь",
+   "label": "Handbook",
    "sprite": "desk",
    "at": [
     8,
@@ -148,7 +148,7 @@
    "type": "prop",
    "id": "radio",
    "use": "radio",
-   "label": "Radio·Радио",
+   "label": "Radio",
    "sprite": "radio",
    "at": [
     10,
@@ -159,38 +159,6 @@
     1
    ],
    "shadow": 0
-  },
-  {
-   "type": "prop",
-   "id": "map",
-   "use": "map",
-   "label": "Mapa Polski · Карта Польши",
-   "sprite": "w2_wallmap",
-   "at": [
-    1,
-    1
-   ],
-   "size": [
-    2,
-    1
-   ],
-   "depth": "wall"
-  },
-  {
-   "type": "prop",
-   "id": "calendar",
-   "use": "calendar",
-   "label": "Kalendarz · Памятные даты",
-   "sprite": "w2_calendar",
-   "at": [
-    7,
-    1
-   ],
-   "size": [
-    2,
-    1
-   ],
-   "depth": "wall"
   },
   {
    "type": "exit",
@@ -208,53 +176,6 @@
     2,
     3
    ]
-  },
-  {
-   "type": "prop",
-   "id": "decor_choinka",
-   "sprite": "w2_choinka",
-   "at": [
-    10,
-    7
-   ],
-   "size": [
-    1,
-    1
-   ],
-   "decor": "dec.choinka",
-   "shadow": 12
-  },
-  {
-   "type": "prop",
-   "id": "decor_palma",
-   "sprite": "w2_palma",
-   "at": [
-    1,
-    7
-   ],
-   "size": [
-    1,
-    1
-   ],
-   "decor": "dec.palma",
-   "shadow": 8
-  },
-  {
-   "type": "prop",
-   "id": "decor_pisanki",
-   "sprite": "w2_pisanki",
-   "at": [
-    9,
-    3
-   ],
-   "size": [
-    1,
-    1
-   ],
-   "solid": false,
-   "decor": "dec.pisanki",
-   "z": 2,
-   "dy": 14
   }
  ]
 }

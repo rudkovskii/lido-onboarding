@@ -14,9 +14,9 @@ export interface Rule {
 }
 
 const inPureSystems = (p: string): boolean => (p.startsWith('src/systems/') && !p.startsWith('src/systems/platform/'));
-/** Сцены, мир и экраны: ввод только через intents (src/input); исключение — поля ввода (src/ui/keyboard). */
+/** Сцены, мир и экраны: ввод только через intents (src/input). */
 const inScenesOrScreens = (p: string): boolean =>
-  /^src\/(scenes|world|ui|games)\//.test(p) && !p.startsWith('src/ui/keyboard/');
+  /^src\/(scenes|world|ui)\//.test(p);
 
 export const RULES: Rule[] = [
   // Phaser 3 API, удалённое или заменённое в Phaser 4

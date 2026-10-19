@@ -6,9 +6,9 @@ import { createStore, del, get, keys, setMany, type UseStore } from 'idb-keyval'
 import { newSave, normalizeSave, type Save } from '../save';
 
 export const KEYS = {
-  save: 'pq_save',
+  save: 'lo_save',
   /** Аварийная копия сохранения в localStorage (pagehide), удаляется после успешной записи в IndexedDB. */
-  tail: 'pq_save_tail',
+  tail: 'lo_save_tail',
 } as const;
 
 export type BackendKind = 'idb' | 'local' | 'memory';
@@ -61,7 +61,7 @@ export function idbKV(store: UseStore): KV {
 }
 
 /** localStorage: значения как JSON. Операции синхронные внутри (важно для pagehide), ошибки — rejected promise. */
-export function lsKV(ls: StorageLike, prefix = 'pq_', ns = ''): KV {
+export function lsKV(ls: StorageLike, prefix = 'lo_', ns = ''): KV {
   const sync = <T>(fn: () => T): Promise<T> => {
     try {
       return Promise.resolve(fn());
@@ -119,7 +119,7 @@ export class FallbackKV implements KV {
     private readonly chain: KV[],
     private readonly onSwitch?: (from: BackendKind, to: BackendKind, err: unknown) => void,
   ) {
-    if (chain.length === 0) throw new Error('FallbackKV: пустая цепочка');
+    if (chain.length === 0) throw new Error('FallbackKV: empty chain');
   }
   get kind(): BackendKind {
     return this.chain[this.i]!.kind;
@@ -132,7 +132,7 @@ export class FallbackKV implements KV {
       } catch (err) {
         const next = this.chain[this.i + 1];
         if (!next) throw err;
-        console.warn(`storage: ${kv.kind} не работает, переключаюсь на ${next.kind}`, err);
+        console.warn(`storage: ${kv.kind} failed, switching to ${next.kind}`, err);
         this.onSwitch?.(kv.kind, next.kind, err);
         this.i++;
       }
@@ -176,7 +176,7 @@ function defaultIdb(dbName: string): UseStore | null {
 
 // ── Хранилище игры.
 
-/** Профиль для тестов: `?dev=<id>` → база `polski-farm-<id>` (id: латиница, цифры, `-`, `_`, до 32 знаков; иначе null). */
+/** Профиль для тестов: `?dev=<id>` → база `lido-onboarding-<id>` (id: латиница, цифры, `-`, `_`, до 32 знаков; иначе null). */
 export function parseProfile(raw: string | null): string | null {
   if (!raw || raw === '0') return null;
   const id = raw.trim().toLowerCase();
@@ -184,7 +184,7 @@ export function parseProfile(raw: string | null): string | null {
 }
 
 export function profileDbName(profile: string): string {
-  return `polski-farm-${profile}`;
+  return `lido-onboarding-${profile}`;
 }
 
 export interface StorageOptions {
@@ -193,7 +193,7 @@ export interface StorageOptions {
   /** Своя IndexedDB-база (тесты); null — не использовать IndexedDB. */
   idb?: UseStore | null;
   dbName?: string;
-  /** Профиль (`?dev=<id>`): своя база `polski-farm-<id>` и свои ключи localStorage, основное сохранение не трогаем. */
+  /** Профиль (`?dev=<id>`): своя база `lido-onboarding-<id>` и свои ключи localStorage, основное сохранение не трогаем. */
   profile?: string;
   /** localStorage для запасного бэкенда и аварийной копии; null — не использовать. */
   ls?: StorageLike | null;
@@ -249,16 +249,16 @@ export class GameStorage {
     if (opts.kv) this.kv = opts.kv;
     else {
       const chain: KV[] = [];
-      const idb = opts.idb === undefined ? defaultIdb(opts.dbName ?? (opts.profile ? profileDbName(opts.profile) : 'polski-quest-farm')) : opts.idb;
+      const idb = opts.idb === undefined ? defaultIdb(opts.dbName ?? (opts.profile ? profileDbName(opts.profile) : 'lido-onboarding')) : opts.idb;
       if (idb) chain.push(idbKV(idb));
-      if (this.ls) chain.push(lsKV(this.ls, 'pq_', this.ns));
+      if (this.ls) chain.push(lsKV(this.ls, 'lo_', this.ns));
       chain.push(memoryKV());
       this.kv = new FallbackKV(chain);
     }
   }
 
   get save(): Save {
-    if (!this.s) throw new Error('storage: сначала load()');
+    if (!this.s) throw new Error('storage: call load() first');
     return this.s;
   }
   get backend(): BackendKind {
@@ -284,7 +284,7 @@ export class GameStorage {
       try {
         fn(e);
       } catch (err) {
-        console.warn('storage: подписчик упал', err);
+        console.warn('storage: subscriber failed', err);
       }
     }
   }
@@ -294,7 +294,7 @@ export class GameStorage {
     try {
       raw = await this.kv.get(KEYS.save);
     } catch (e) {
-      console.warn('storage: чтение не удалось', e);
+      console.warn('storage: read failed', e);
     }
     let save = normalizeSave(raw);
     // Записи шли в localStorage (IndexedDB падал), а теперь IndexedDB жив, но с прошлой версией: берём более свежую.
@@ -363,7 +363,7 @@ export class GameStorage {
       },
       (err: unknown) => {
         this.inFlight--;
-        console.warn('storage: запись не удалась', err);
+        console.warn('storage: write failed', err);
         if (this.s === snap) this.dirty0 = true;
         // Повтор: данные остаются «грязными», пока запись не пройдёт. Новое изменение перебьёт этот таймер обычным дебаунсом.
         const wait = this.retryMs;
@@ -387,7 +387,7 @@ export class GameStorage {
     try {
       this.ls.setItem(this.ns + KEYS.tail, JSON.stringify(this.s));
     } catch (e) {
-      console.warn('storage: аварийная копия не записана', e);
+      console.warn('storage: emergency copy not written', e);
     }
   }
 

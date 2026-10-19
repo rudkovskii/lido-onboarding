@@ -1,4 +1,4 @@
-// Общая модалка экранов фермы (Słownik, Spiżarnia, коробка, кровать, карточка растения) в стиле меню Stardew.
+// Общая модалка экранов (Handbook, полка Learned, коробка, кровать, карточка растения) в стиле меню Stardew.
 // Пока открыта: мир не принимает ввод (`world:input`), Esc/«✕»/тап мимо закрывают, стрелки ходят по `[data-nav]`,
 // Enter/Пробел нажимает текущий. Одновременно открыта одна панель.
 import { STAGE_INFO } from './glossary';
@@ -38,8 +38,8 @@ ${THEME_CSS}
 }
 `;
 
-/** Стадия по-русски. */
-export const STAGE_RU: Record<Stage, string> = { seed: STAGE_INFO.seed.ru, sprout: STAGE_INFO.sprout.ru, bush: STAGE_INFO.bush.ru, ripe: STAGE_INFO.ripe.ru, overripe: STAGE_INFO.overripe.ru };
+/** Стадия по-английски. */
+export const STAGE_NAME: Record<Stage, string> = { seed: STAGE_INFO.seed.label, sprout: STAGE_INFO.sprout.label, bush: STAGE_INFO.bush.label, ripe: STAGE_INFO.ripe.label };
 
 /** Атрибуты навигационного элемента: `key` помогает вернуть фокус после перерисовки; `group` — для прыжков стрелками между блоками. */
 export function nav(group = '', axis: 'v' | 'h' = 'v', key = ''): Record<string, string> {
@@ -77,7 +77,7 @@ let active: { shut(quiet: boolean): void } | null = null;
 export function createPanel(opts: PanelOptions): Panel {
   const bus = opts.bus ?? globalBus;
   const title = el('h2', {}, opts.title);
-  const xBtn = el('button', { type: 'button', class: 'pq-x', 'aria-label': 'Закрыть', 'data-close': '' }, '✕');
+  const xBtn = el('button', { type: 'button', class: 'pq-x', 'aria-label': 'Close', 'data-close': '' }, '✕');
   const body = el('div', { class: 'pq-body' });
   const footer = el('div', { class: 'pq-foot', hidden: true });
   const frame = el(

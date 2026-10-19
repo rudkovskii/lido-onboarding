@@ -66,18 +66,18 @@ export function mountSettings(parent: HTMLElement, deps: SettingsDeps): Settings
   const savedLine = el('div', { class: 'note', 'data-last-saved': '' });
   const paintSaved = (): void => {
     const t = deps.lastSaved?.() ?? null;
-    const hhmm = t === null ? '—' : new Date(t).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
-    savedLine.textContent = `Последнее сохранение: ${hhmm}`;
-    if (deps.backupDue?.()) note.textContent = 'Копию не скачивали больше недели: нажми «Экспорт сохранения».';
+    const hhmm = t === null ? '—' : new Date(t).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+    savedLine.textContent = `Last saved: ${hhmm}`;
+    if (deps.backupDue?.()) note.textContent = 'No backup for over a week: press "Export save".';
   };
   const sound = el('button', { type: 'button', class: 'pq-btn pq-toggle', 'aria-pressed': String(deps.getSound()) });
   const paintSound = (): void => {
     const on = !deps.muted && deps.getSound();
     sound.setAttribute('aria-pressed', String(on));
-    sound.textContent = on ? 'Вкл' : 'Выкл';
+    sound.textContent = on ? 'On' : 'Off';
     if (deps.muted) {
       sound.disabled = true;
-      sound.title = 'Звук выключен ссылкой (?mute=1)';
+      sound.title = 'Sound is muted by the link (?mute=1)';
     }
   };
   sound.onclick = () => {
@@ -86,14 +86,14 @@ export function mountSettings(parent: HTMLElement, deps: SettingsDeps): Settings
     paintSound();
   };
   // Громкость эффектов: при `?mute=1` слайдер виден, но неактивен.
-  const vol = el('input', { type: 'range', min: '0', max: '100', step: '5', 'aria-label': 'Громкость эффектов', 'data-sfx-volume': '' });
+  const vol = el('input', { type: 'range', min: '0', max: '100', step: '5', 'aria-label': 'Effects volume', 'data-sfx-volume': '' });
   const volOut = el('output', { 'data-sfx-volume-out': '' });
   const paintVol = (): void => {
     const v = Math.round(deps.getSfxVolume?.() ?? 60);
     vol.value = String(v);
     volOut.textContent = `${v}%`;
     vol.disabled = !!deps.muted || !deps.setSfxVolume;
-    if (deps.muted) vol.title = 'Звук выключен ссылкой (?mute=1)';
+    if (deps.muted) vol.title = 'Sound is muted by the link (?mute=1)';
   };
   vol.addEventListener('input', () => {
     if (vol.disabled) return;
@@ -104,22 +104,22 @@ export function mountSettings(parent: HTMLElement, deps: SettingsDeps): Settings
   // Музыка: вкл/выкл, выбор трека, громкость (V11b). Состояние — в плеере (`deps.music`), сюда приходит через onChange.
   const music = deps.music;
   const mPower = el('button', { type: 'button', class: 'pq-btn pq-toggle', 'data-music-power': '', onclick: () => music?.toggle() });
-  const mTrack = el('select', { class: 'pq-select', 'aria-label': 'Трек', 'data-music-track': '' });
-  for (const t of TRACKS) mTrack.append(el('option', { value: t.id }, `${t.pl} · ${t.ru}`));
+  const mTrack = el('select', { class: 'pq-select', 'aria-label': 'Track', 'data-music-track': '' });
+  for (const t of TRACKS) mTrack.append(el('option', { value: t.id }, t.name));
   mTrack.addEventListener('change', () => music?.select(mTrack.value));
-  const mVol = el('input', { type: 'range', min: '0', max: '100', step: '5', 'aria-label': 'Громкость музыки', 'data-music-volume': '' });
+  const mVol = el('input', { type: 'range', min: '0', max: '100', step: '5', 'aria-label': 'Music volume', 'data-music-volume': '' });
   const mVolOut = el('output', { 'data-music-volume-out': '' });
   mVol.addEventListener('input', () => music?.setVolume(Number(mVol.value) || 0));
   const paintMusic = (): void => {
     if (!music) return;
     const v = music.view();
     mPower.setAttribute('aria-pressed', String(v.on));
-    mPower.textContent = v.on ? 'Вкл' : 'Выкл';
+    mPower.textContent = v.on ? 'On' : 'Off';
     mTrack.value = v.track;
     mVol.value = String(v.volume);
     mVolOut.textContent = `${v.volume}%`;
   };
-  const musicRows = music ? [el('div', { class: 'row' }, el('span', {}, 'Музыка'), mPower), el('div', { class: 'row' }, mTrack), el('label', { class: 'pq-vol' }, el('span', {}, 'Громкость музыки'), mVol, mVolOut)] : [];
+  const musicRows = music ? [el('div', { class: 'row' }, el('span', {}, 'Music'), mPower), el('div', { class: 'row' }, mTrack), el('label', { class: 'pq-vol' }, el('span', {}, 'Music volume'), mVol, mVolOut)] : [];
   const offMusic = music?.onChange(paintMusic);
   paintMusic();
   const file = el('input', { type: 'file', accept: 'application/json,.json', hidden: true });
@@ -131,33 +131,33 @@ export function mountSettings(parent: HTMLElement, deps: SettingsDeps): Settings
     note.textContent = r.message;
   };
   let armed = false;
-  const reset = el('button', { type: 'button', class: 'pq-btn danger', 'data-reset': '' }, 'Сбросить игру');
+  const reset = el('button', { type: 'button', class: 'pq-btn danger', 'data-reset': '' }, 'Reset progress');
   reset.onclick = () => {
     if (!armed) {
       armed = true;
-      reset.textContent = 'Точно? Сначала скачаю копию';
-      note.textContent = 'Файл с сохранением скачается сам, потом всё сотрётся.';
+      reset.textContent = 'Sure? I will download a backup first';
+      note.textContent = 'A backup file downloads first, then everything is erased.';
       return;
     }
     reset.disabled = true;
     void deps.reset();
   };
-  const closeBtn = el('button', { type: 'button', class: 'pq-btn', onclick: () => api.close() }, 'Закрыть');
+  const closeBtn = el('button', { type: 'button', class: 'pq-btn', onclick: () => api.close() }, 'Close');
   const card = el(
     'div',
-    { class: 'pq-card', role: 'dialog', 'aria-label': 'Настройки' },
-    el('h2', {}, 'Настройки'),
-    el('div', { class: 'row' }, el('span', {}, 'Звук'), sound),
-    el('label', { class: 'pq-vol' }, el('span', {}, 'Громкость эффектов'), vol, volOut),
+    { class: 'pq-card', role: 'dialog', 'aria-label': 'Settings' },
+    el('h2', {}, 'Settings'),
+    el('div', { class: 'row' }, el('span', {}, 'Sound'), sound),
+    el('label', { class: 'pq-vol' }, el('span', {}, 'Effects volume'), vol, volOut),
     ...musicRows,
     savedLine,
-    el('button', { type: 'button', class: 'pq-btn', 'data-export': '', onclick: () => (note.textContent = `Сохранено: ${deps.exportSave()}`) }, 'Экспорт сохранения'),
-    el('button', { type: 'button', class: 'pq-btn', 'data-import': '', onclick: () => file.click() }, 'Импорт сохранения'),
+    el('button', { type: 'button', class: 'pq-btn', 'data-export': '', onclick: () => (note.textContent = `Saved: ${deps.exportSave()}`) }, 'Export save'),
+    el('button', { type: 'button', class: 'pq-btn', 'data-import': '', onclick: () => file.click() }, 'Import save'),
     file,
     reset,
     note,
     closeBtn,
-    el('div', { class: 'ver', 'data-version': '' }, [deps.version ? `Версия ${deps.version}` : '', deps.profile ? `профиль ${deps.profile}` : '', deps.muted ? 'звук выключен ссылкой' : ''].filter(Boolean).join(' · ')),
+    el('div', { class: 'ver', 'data-version': '' }, [deps.version ? `Version ${deps.version}` : '', deps.profile ? `profile ${deps.profile}` : '', deps.muted ? 'sound muted by the link' : ''].filter(Boolean).join(' · ')),
   );
   const root = el('div', { class: 'pq-modal', hidden: true, 'data-settings': '' }, el('style', {}, css), card);
   root.addEventListener('click', (e) => {
@@ -173,7 +173,7 @@ export function mountSettings(parent: HTMLElement, deps: SettingsDeps): Settings
       if (open) return;
       open = true;
       armed = false;
-      reset.textContent = 'Сбросить игру';
+      reset.textContent = 'Reset progress';
       reset.disabled = false;
       note.textContent = '';
       paintSaved();

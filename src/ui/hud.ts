@@ -1,6 +1,5 @@
-// HUD: уровень пути к A1 («Уровень 7/20», полоска внутри уровня, «до A1: 12%») в левом углу и кнопка настроек в правом. Опыт приходит событием `hud:xp` (F-03).
+// HUD: уровень пути к Onboarded («Level 3/8», полоска внутри уровня, «to Onboarded: 12%») в левом углу и кнопка настроек в правом. Опыт приходит событием `hud:xp` (F-03).
 import { bus as globalBus, type Bus } from '../systems/bus';
-import { goalText, type DayGoal } from '../systems/daygoal';
 import type { BusEvents } from '../types/bus';
 import { el } from './dom';
 import { THEME_CSS } from './theme';
@@ -44,16 +43,6 @@ ${THEME_CSS}
 .pq-gear { width: 44px; height: 44px; padding: 0; font-size: 22px; line-height: 40px; text-align: center; }
 `;
 
-/** «1 слово», «2 слова», «5 слов». */
-export function wordsRu(n: number): string {
-  const a = Math.abs(n) % 100;
-  const b = a % 10;
-  if (a > 10 && a < 20) return 'слов';
-  if (b === 1) return 'слово';
-  if (b >= 2 && b <= 4) return 'слова';
-  return 'слов';
-}
-
 export interface Hud {
   root: HTMLElement;
   gear: HTMLButtonElement;
@@ -70,26 +59,26 @@ export interface Hud {
 export interface HudOptions {
   onSettings(): void;
   bus?: Bus<BusEvents>;
-  /** Цель дня («Сегодня: полито N · созреет завтра M»); нет — плашки нет. Читается заново на каждый `hud:xp` и при возврате на вкладку. */
-  goal?: () => DayGoal | null;
-  /** Тап по плашке цели (открыть итог дня). */
+  /** Плашка прогресса («Learned 3 of 47 · growing 5»); нет — плашки нет. Читается заново на каждый `hud:xp` и при возврате на вкладку. */
+  goal?: () => string | null;
+  /** Тап по плашке (открыть итог). */
   onGoal?: () => void;
-  /** Тап по уровню («Путь к A1»). */
+  /** Тап по уровню («Path to Onboarded»). */
   onLevel?: () => void;
 }
 
 /** Сколько горит галочка «сохранено», мс. */
 export const SAVED_FLASH_MS = 1000;
-export const SAVE_ERROR_TEXT = 'Не сохранилось, повторяю';
+export const SAVE_ERROR_TEXT = 'Could not save, retrying';
 
 export function mountHud(parent: HTMLElement, o: HudOptions): Hud {
   const bus = o.bus ?? globalBus;
-  const lvl = el('span', { class: 'pq-xp-lvl', 'data-xp-level': '' }, 'Старт');
+  const lvl = el('span', { class: 'pq-xp-lvl', 'data-xp-level': '' }, 'Start');
   const fill = el('span', { class: 'pq-xp-fill', style: 'width: 0%' });
-  const bar = el('span', { class: 'pq-xp-bar', role: 'progressbar', 'aria-label': 'Подуровень', 'aria-valuemin': 0, 'aria-valuemax': 100, 'aria-valuenow': 0 }, fill);
+  const bar = el('span', { class: 'pq-xp-bar', role: 'progressbar', 'aria-label': 'Level', 'aria-valuemin': 0, 'aria-valuemax': 100, 'aria-valuenow': 0 }, fill);
   const nextEl = el('span', { class: 'pq-xp-next', 'data-xp-next': '' });
-  const xp = el('button', { type: 'button', class: 'pq-xp', 'aria-label': 'Путь к A1', 'data-xp': '', onclick: () => o.onLevel?.() }, el('span', { class: 'pq-xp-col' }, lvl, bar, nextEl));
-  const gear = el('button', { type: 'button', class: 'pq-btn pq-gear', 'aria-label': 'Настройки', onclick: () => o.onSettings() }, '⚙');
+  const xp = el('button', { type: 'button', class: 'pq-xp', 'aria-label': 'Path to Onboarded', 'data-xp': '', onclick: () => o.onLevel?.() }, el('span', { class: 'pq-xp-col' }, lvl, bar, nextEl));
+  const gear = el('button', { type: 'button', class: 'pq-btn pq-gear', 'aria-label': 'Settings', onclick: () => o.onSettings() }, '⚙');
   const goalEl = el('button', { type: 'button', class: 'pq-goal', 'data-goal': '', hidden: true, onclick: () => o.onGoal?.() });
   const saved = el('span', { class: 'pq-saved', 'data-saved': '', 'aria-hidden': 'true' }, '✓');
   const root = el('div', { class: 'pq-hud' }, el('style', {}, css), el('div', { class: 'pq-left' }, xp, goalEl), el('div', { class: 'pq-right' }, gear, saved));
@@ -109,7 +98,7 @@ export function mountHud(parent: HTMLElement, o: HudOptions): Hud {
   const paintGoal = (): void => {
     const g = o.goal?.() ?? null;
     goalEl.hidden = !g;
-    if (g) goalEl.textContent = goalText(g);
+    if (g) goalEl.textContent = g;
   };
   paintGoal();
   const onVisible = (): void => {
@@ -119,13 +108,13 @@ export function mountHud(parent: HTMLElement, o: HudOptions): Hud {
   const setXp = (ev: BusEvents['hud:xp']): void => {
     const r = Math.max(0, Math.min(1, ev.ratio));
     lvl.replaceChildren();
-    if (ev.sub !== undefined && ev.of !== undefined && ev.sub >= 1 && ev.sub <= ev.of) lvl.append('Уровень ', el('b', {}, `${ev.sub}/${ev.of}`));
+    if (ev.sub !== undefined && ev.of !== undefined && ev.sub >= 1 && ev.sub <= ev.of) lvl.append('Level ', el('b', {}, `${ev.sub}/${ev.of}`));
     else lvl.textContent = ev.level;
-    // «до A1: 12%»: доля всей базы (слово 1, фраза сборки 2, растущее частично); нет поля — молчим.
+    // «to Onboarded: 12%»: доля всех карточек (выученная 1, растущая частично); нет поля — молчим.
     if (ev.pct === undefined) nextEl.textContent = '';
-    else nextEl.textContent = ev.pct >= 1 ? 'A1 достигнут' : `до A1: ${Math.floor(ev.pct * 100)}%`;
-    const target = ev.sub === undefined || ev.of === undefined ? 'следующего уровня' : ev.sub >= ev.of ? 'A1' : `уровня ${ev.sub + 1}`;
-    xp.title = ev.toNext != null ? `До ${target}: ${ev.toNext} оч.${ev.growing ? ` · уже растут ${ev.growing}` : ''}` : '';
+    else nextEl.textContent = ev.pct >= 1 ? 'Onboarded 🎉' : `to Onboarded: ${Math.floor(ev.pct * 100)}%`;
+    const target = ev.sub === undefined || ev.of === undefined ? 'next level' : ev.sub >= ev.of ? 'Onboarded' : `Level ${ev.sub + 1}`;
+    xp.title = ev.toNext != null ? `To ${target}: ${ev.toNext} pts${ev.growing ? ` · ${ev.growing} growing` : ''}` : '';
     bar.setAttribute('aria-valuetext', `${lvl.textContent}. ${nextEl.textContent}`);
     fill.style.width = `${Math.round(r * 100)}%`;
     bar.setAttribute('aria-valuenow', String(Math.round(r * 100)));
@@ -143,7 +132,7 @@ export function mountHud(parent: HTMLElement, o: HudOptions): Hud {
       xp.classList.remove('flash');
       void xp.offsetWidth;
       xp.classList.add('flash');
-      xp.title = ev.sub !== undefined && ev.sub >= 1 && ev.sub <= (ev.of ?? 20) ? `Новый уровень: ${ev.sub}` : `Новый уровень: ${level}`;
+      xp.title = ev.sub !== undefined && ev.sub >= 1 && ev.sub <= (ev.of ?? 8) ? `New level: ${ev.sub}` : `New level: ${level}`;
     }
   });
   return {
@@ -175,7 +164,7 @@ export function mountHud(parent: HTMLElement, o: HudOptions): Hud {
       if (action) {
         toastEl.append(
           el('button', { type: 'button', onclick: () => (hideToast(), action.run()) }, action.label),
-          el('button', { type: 'button', 'aria-label': 'Закрыть', onclick: () => hideToast() }, '✕'),
+          el('button', { type: 'button', 'aria-label': 'Close', onclick: () => hideToast() }, '✕'),
         );
       }
       toastEl.hidden = false;

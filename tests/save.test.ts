@@ -105,15 +105,12 @@ describe('сохранение: экспорт и импорт', () => {
     expect(r).toEqual({ ok: true, save: s });
   });
 
-  it('огород (v2) переживает экспорт и импорт; сохранение v1 читается с пустым огородом', () => {
-    const garden = { planted: [{ t: 1, id: 'w.kot' }], log: [{ t: 2, day: 0, id: 'w.kot', side: 'pr' as const, ok: true, mode: 1 as const }], slots: { 'w.kot': 0 }, tier: 0 };
+  it('сад переживает экспорт и импорт; сохранение без сада читается с пустым', () => {
+    const garden = { planted: [{ t: 1, id: 'pol.keys' }], log: [{ t: 2, id: 'pol.keys', ok: true, mode: 1 as const }], slots: { 'pol.keys': 0 }, tier: 0 };
     const s = { ...newSave(NOW), garden };
-    // Огород без отметки игры 5 получает её при загрузке: весь старый журнал — по прежнему правилу урожая.
-    expect(importSave(exportSave(s))).toEqual({ ok: true, save: { ...s, garden: { ...garden, prodFrom: 3 } } });
-    const s2 = { ...s, garden: { ...garden, prodFrom: 3 } };
-    expect(importSave(exportSave(s2))).toEqual({ ok: true, save: s2 });
+    expect(importSave(exportSave(s))).toEqual({ ok: true, save: s });
     const old = normalizeSave({ v: 1, created: 1, updated: 2, position: null, settings: { sound: true } });
-    expect(old?.garden).toEqual({ planted: [], log: [], slots: {}, tier: 0, prodFrom: 0 });
+    expect(old?.garden).toEqual({ planted: [], log: [], slots: {}, tier: 0 });
   });
 
   it('подсказки: флаги переживают экспорт; сохранение без них читается, мусор отбрасывается', () => {
@@ -126,7 +123,7 @@ describe('сохранение: экспорт и импорт', () => {
   it('чужой файл, мусор и версия из будущего отклоняются', () => {
     expect(importSave('не json')).toEqual({ ok: false, reason: 'json' });
     expect(importSave('{"app":"other","save":{}}')).toEqual({ ok: false, reason: 'format' });
-    expect(importSave(JSON.stringify({ app: 'polski-quest-farm', v: SAVE_V + 1, save: newSave(NOW) }))).toEqual({ ok: false, reason: 'version' });
+    expect(importSave(JSON.stringify({ app: 'lido-onboarding', v: SAVE_V + 1, save: newSave(NOW) }))).toEqual({ ok: false, reason: 'version' });
   });
 
   it('нормализация отбрасывает мусор в позиции и включает звук по умолчанию', () => {
@@ -138,6 +135,6 @@ describe('сохранение: экспорт и импорт', () => {
   });
 
   it('имя файла по дате', () => {
-    expect(exportFileName(Date.UTC(2026, 9, 17, 9, 0), 0)).toBe('ferma-2026-10-17.json');
+    expect(exportFileName(Date.UTC(2026, 9, 17, 9, 0), 0)).toBe('lido-onboarding-2026-10-17.json');
   });
 });

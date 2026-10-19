@@ -1,14 +1,12 @@
-// Skrzynka · Коробка урожая (ферма) и Łóżko · Итог (кровать дома): сводка по выращенному. Без лимитов и «до завтра».
+// Harvest box (campus) и Bed · Progress (кровать в Onboarding HQ): сводка по выученному.
 import type { Bus } from '../systems/bus';
 import type { BusEvents } from '../types/bus';
 import type { FarmApi } from '../types/farm';
 import { el } from './dom';
-import { TIP_CSS, type Tips } from './glossary';
 import { createPanel, nav } from './panel';
 import { growthText, levelLabel } from '../systems/xp';
 
 const css = `
-${TIP_CSS}
 .sum { display: flex; flex-direction: column; gap: 10px; }
 .sum-hero { display: flex; gap: 10px; }
 .sum-big { flex: 1 1 0; background: #fffaf0; border: 2px solid var(--pq-wood-dark); border-radius: 8px; padding: 10px; text-align: center; }
@@ -32,55 +30,45 @@ export interface SummaryScreen {
   readonly isOpen: boolean;
 }
 
-
-export function mountSummary(parent: HTMLElement, api: FarmApi, bus?: Bus<BusEvents>, tips?: Tips, onPath?: () => void): SummaryScreen {
+export function mountSummary(parent: HTMLElement, api: FarmApi, bus?: Bus<BusEvents>, onPath?: () => void): SummaryScreen {
   const panel = createPanel({ title: '', bus });
   const content = el('div', { class: 'sum' });
-  const closeBtn = el('button', { type: 'button', class: 'pq-btn', 'data-done': '', ...nav('done', 'v', 'done'), onclick: () => panel.close() }, 'Закрыть');
+  const closeBtn = el('button', { type: 'button', class: 'pq-btn', 'data-done': '', ...nav('done', 'v', 'done'), onclick: () => panel.close() }, 'Close');
   panel.body.append(el('style', {}, css), content, el('div', { style: 'margin-top:12px' }, closeBtn));
   parent.append(panel.root);
 
   let kind: 'bin' | 'bed' = 'bin';
-  const hero = (today: number, total: number): HTMLElement =>
+  const hero = (learned: number, total: number): HTMLElement =>
     el(
       'div',
       { class: 'sum-hero' },
-      el('div', { class: 'sum-big' }, el('b', { 'data-today': '' }, String(today)), el('span', {}, 'выращено сегодня')),
-      el('div', { class: 'sum-big' }, el('b', { 'data-total': '' }, String(total)), el('span', {}, 'выращено всего')),
+      el('div', { class: 'sum-big' }, el('b', { 'data-total': '' }, String(learned)), el('span', {}, 'cards learned')),
+      el('div', { class: 'sum-big' }, el('b', { 'data-left': '' }, String(Math.max(0, total - learned))), el('span', {}, 'still to learn')),
     );
   const row = (label: string, value: string | number): HTMLElement => el('div', { class: 'sum-row' }, el('span', {}, label), el('b', {}, String(value)));
 
   function render(): void {
     const s = api.stats();
     if (kind === 'bin') {
-      panel.setTitle('Skrzynka · Коробка урожая');
-      content.replaceChildren(hero(s.grownToday, s.grownTotal), el('div', { class: 'sum-hint' }, 'Урожай сюда носит фермер сам во время мини-игр.'));
+      panel.setTitle('Harvest box');
+      content.replaceChildren(hero(s.grownTotal, s.total), el('div', { class: 'sum-hint' }, 'Your hero carries the harvest here while you play the mini-games.'));
       return;
     }
-    panel.setTitle('Łóżko · Итог');
+    panel.setTitle('Bed · Progress');
     const p = s.path;
     const pct = Math.max(0, Math.min(100, Math.round(s.ratio * 100)));
     const grow = growthText(s.sessionGain);
     content.replaceChildren(
-      hero(s.grownToday, s.grownTotal),
+      hero(s.grownTotal, s.total),
       el(
         'div',
         { class: 'sum-level' },
-        el('div', { class: 'top' }, el('span', { class: 'lvl', 'data-level': '' }, levelLabel(p.sub)), el('span', { 'data-session-gain': '' }, grow ? `${grow} за сессию` : `${s.xp} опыта`)),
+        el('div', { class: 'top' }, el('span', { class: 'lvl', 'data-level': '' }, levelLabel(p.sub)), el('span', { 'data-session-gain': '' }, grow ? `${grow} this session` : `${s.xp} XP`)),
         el('div', { class: 'sum-bar', role: 'progressbar', 'aria-valuenow': pct, 'aria-valuemin': 0, 'aria-valuemax': 100 }, el('i', { style: `width:${pct}%` })),
-        el('div', { class: 'sum-hint', style: 'margin-top:4px', 'data-level-hint': '' }, p.a1 ? 'Уровень A1: вся база выращена' : `До A1: ${Math.floor(p.pct * 100)}% · до ${p.nextTo} ещё ${p.toNext} оч.`),
-        onPath ? el('button', { type: 'button', class: 'pq-btn small', style: 'margin-top:8px', 'data-open-path': '', ...nav('path', 'v', 'path'), onclick: () => (panel.close(), onPath()) }, 'Путь к A1') : null,
+        el('div', { class: 'sum-hint', style: 'margin-top:4px', 'data-level-hint': '' }, p.done ? 'Onboarded: every card is learned' : `To Onboarded: ${Math.floor(p.pct * 100)}% · to ${p.nextTo}: ${p.toNext} more pts`),
+        onPath ? el('button', { type: 'button', class: 'pq-btn small', style: 'margin-top:8px', 'data-open-path': '', ...nav('path', 'v', 'path'), onclick: () => (panel.close(), onPath()) }, 'Path to Onboarded') : null,
       ),
-      el(
-        'div',
-        { class: 'sum-rows' },
-        row('Слов в банках', s.grownWords),
-        row('Фраз в банках', s.grownPhrases),
-        row('Растёт на грядках', s.growing),
-        row('В мешке', s.bag),
-        row('Ответов сегодня', s.answersToday),
-      ),
-      ...[tips?.note('jar'), tips?.note('bag')].filter((n): n is HTMLElement => !!n),
+      el('div', { class: 'sum-rows' }, row('Cards learned', s.grownTotal), row('Growing in the garden', s.growing), row('Answers so far', s.answersTotal)),
     );
   }
 
@@ -88,7 +76,6 @@ export function mountSummary(parent: HTMLElement, api: FarmApi, bus?: Bus<BusEve
   panel.onClose(() => {
     off?.();
     off = null;
-    tips?.commit();
   });
   const show = (k: 'bin' | 'bed'): void => {
     kind = k;

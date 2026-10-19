@@ -40,9 +40,7 @@ ART = ROOT / 'art'
 OUT = ROOT / 'public' / 'atlas'
 T = 16  # тайл и кратность кадров
 PAD = 1  # extrude вокруг кадра
-LATE_PREFIXES = ('w2_', 'geo_', 't2_')  # спрайты v2: порядок упаковки после всех прочих
-LAST_PREFIXES = ('plant_',)  # «пёстрый огород» (кусты, плоды, мини-иконки): после v2, координаты прежних кадров не двигаются
-FINAL_PREFIXES = ('beaver',)  # бобёр, хатка и пруд: после всего, координаты прежних кадров не двигаются
+LAST_PREFIXES = ('plant_',)  # 16 кустов растений: пакуются после остальных
 
 RGBA = tuple[int, int, int, int]
 
@@ -235,8 +233,8 @@ def extrude_paste(dst: Image.Image, src: Image.Image, x: int, y: int) -> None:
 def pack_custom(sprites: dict[str, SpriteDef]) -> tuple[Image.Image, dict, dict]:
     """Полочная упаковка всех кадров (по убыванию высоты). Возвращает PNG, atlas JSON hash и sprites.json."""
     items = [(s.id, i, f) for s in sprites.values() for i, f in enumerate(s.frames)]
-    # Новые спрайты v2 пакуются после старых: координаты старых кадров не двигаются (ui/stageIcon.ts хранит их числами).
-    late = lambda sid: 3 if sid.startswith(FINAL_PREFIXES) else 2 if sid.startswith(LAST_PREFIXES) else int(sid.startswith(LATE_PREFIXES))  # noqa: E731
+    # Кусты пакуются после остальных. Координаты иконок стадий хранит числами ui/stageIcon.ts (его сверяет тест farmui).
+    late = lambda sid: int(sid.startswith(LAST_PREFIXES))  # noqa: E731
     items.sort(key=lambda t: (late(t[0]), -t[2].height, t[0], t[1]))
     width = 256
     x = y = 0

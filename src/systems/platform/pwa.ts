@@ -5,8 +5,8 @@
 //   • проверка обновления при возврате в приложение и раз в 30 минут (PWA на iPhone живёт днями);
 //   • отметка последней авто-перезагрузки — в sessionStorage (защита от петли).
 
-const GUARD_KEY = 'pq-sw-reload-at';
-const GUARD_FROM_KEY = 'pq-sw-reload-from';
+const GUARD_KEY = 'lo-sw-reload-at';
+const GUARD_FROM_KEY = 'lo-sw-reload-from';
 const CHECK_EVERY_MS = 30 * 60_000;
 
 export interface PwaOptions {
@@ -65,9 +65,9 @@ export async function fetchRemoteBuild(base: string, o: { fetch?: typeof fetch; 
   }
 }
 
-/** `<meta name="pq-build">` из index.html: какой сборкой отдана страница. */
+/** `<meta name="lo-build">` из index.html: какой сборкой отдана страница. */
 export function indexBuild(doc: Document | null = typeof document === 'undefined' ? null : document): string | null {
-  return doc?.querySelector<HTMLMetaElement>('meta[name="pq-build"]')?.content || null;
+  return doc?.querySelector<HTMLMetaElement>('meta[name="lo-build"]')?.content || null;
 }
 
 /**

@@ -26,7 +26,7 @@ export function updateAction(o: {
 }
 
 /**
- * Сборка на экране не та, что на сервере: `local` — `__BUILD_ID__` кода, `index` — `<meta name="pq-build">`
+ * Сборка на экране не та, что на сервере: `local` — `__BUILD_ID__` кода, `index` — `<meta name="lo-build">`
  * из index.html (null — нет), `remote` — `version.json` без кэша (null — не прочитали: офлайн, dev). Расхождение —
  * повод перезагрузиться на титуле или показать тост (`updateAction`).
  */

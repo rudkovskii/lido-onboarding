@@ -55,7 +55,7 @@ function setup(init: Partial<MusicSettings> = {}, mute = false) {
   const made: FakeAudio[] = [];
   const player: MusicPlayer = createMusicPlayer({
     mute,
-    base: '/polski-quest/',
+    base: '/lido-onboarding/',
     get: () => cfg,
     set: (m) => {
       cfg = m;
@@ -81,7 +81,7 @@ describe('плеер: ?mute=1', () => {
     player.setOn(true);
     player.toggle();
     player.toggle();
-    player.select('farma', true);
+    player.select('campus', true);
     player.next();
     player.setLocation('farm');
     player.setDuck(true);
@@ -92,7 +92,7 @@ describe('плеер: ?mute=1', () => {
     expect(v.muted).toBe(true);
     expect(v.playing).toBe(false);
     expect(v.on).toBe(true);
-    expect(cfg().track).toBe(stepTrack('farma', 1));
+    expect(cfg().track).toBe(stepTrack('campus', 1));
     player.dispose();
   });
 });
@@ -108,10 +108,10 @@ describe('плеер: треки и громкость', () => {
 
   it('включение играет выбранный трек с плавным нарастанием; выключение затихает и ставит на паузу', async () => {
     const { player, made, cfg } = setup();
-    player.select('farma', true);
+    player.select('campus', true);
     await vi.advanceTimersByTimeAsync(0);
     const a = made[0]!;
-    expect(a.src).toBe('/polski-quest/music/farma.m4a');
+    expect(a.src).toBe('/lido-onboarding/music/campus.m4a');
     expect(a.paused).toBe(false);
     expect(a.volume).toBeLessThan(0.1);
     await settle();
@@ -141,31 +141,31 @@ describe('плеер: треки и громкость', () => {
     player.prev();
     await settle();
     expect(cfg().track).toBe(TRACKS[TRACKS.length - 1]!.id);
-    player.select('dzien');
+    player.select('day');
     await settle();
-    expect(a.src).toContain('/music/dzien.m4a');
+    expect(a.src).toContain('/music/day.m4a');
     expect(a.paused).toBe(false);
     // выбор трека у выключенной музыки не включает её, а тап по треку в радио (play) включает
     player.setOn(false);
     await settle();
-    player.select('laki');
+    player.select('meadows');
     await settle();
     expect(a.paused).toBe(true);
-    player.select('deszcz', true);
+    player.select('rain', true);
     await settle();
     expect(cfg().on).toBe(true);
-    expect(a.src).toContain('/music/deszcz.m4a');
+    expect(a.src).toContain('/music/rain.m4a');
     expect(a.paused).toBe(false);
   });
 
   it('по кругу: после конца идёт следующий трек; «один трек» — loop', async () => {
-    const { player, made, cfg } = setup({ on: true, track: 'farma', repeat: 'all' });
+    const { player, made, cfg } = setup({ on: true, track: 'campus', repeat: 'all' });
     await settle();
     const a = made[0]!;
     expect(a.loop).toBe(false);
     a.finish();
     await settle();
-    expect(cfg().track).toBe(stepTrack('farma', 1));
+    expect(cfg().track).toBe(stepTrack('campus', 1));
     expect(a.paused).toBe(false);
     player.setRepeat('one');
     expect(a.loop).toBe(true);
@@ -246,18 +246,18 @@ describe('настройки музыки в сохранении', () => {
     delete old.settings.music;
     expect(normalizeSave(old)!.settings.music).toEqual(MUSIC_DEFAULT);
     const s = newSave(5);
-    s.settings.music = { on: true, volume: 35, track: 'wieczor', repeat: 'one', everywhere: false };
+    s.settings.music = { on: true, volume: 35, track: 'evening', repeat: 'one', everywhere: false };
     const r = importSave(exportSave(s));
-    expect(r.ok && r.save.settings.music).toEqual({ on: true, volume: 35, track: 'wieczor', repeat: 'one', everywhere: false });
+    expect(r.ok && r.save.settings.music).toEqual({ on: true, volume: 35, track: 'evening', repeat: 'one', everywhere: false });
   });
 
   it('плеер пишет каждое изменение через set', () => {
     const { player, writes } = setup();
     player.setVolume(20);
     player.setRepeat('one');
-    player.select('deszcz');
+    player.select('rain');
     player.setEverywhere(false);
-    expect(writes.at(-1)).toMatchObject({ volume: 20, repeat: 'one', track: 'deszcz', everywhere: false, on: false });
+    expect(writes.at(-1)).toMatchObject({ volume: 20, repeat: 'one', track: 'rain', everywhere: false, on: false });
   });
 });
 
@@ -275,20 +275,20 @@ describe('экраны', () => {
     const radio = mountRadio(root, player, bus);
     radio.open();
     const q = <T extends Element>(s: string): T => root.querySelector<T>(s)!;
-    expect(q('[data-radio-power]').textContent).toContain('wył.');
+    expect(q('[data-radio-power]').textContent).toContain('off');
     expect(root.querySelectorAll('[data-track]')).toHaveLength(TRACKS.length);
-    q<HTMLButtonElement>('[data-track="laki"]').click();
+    q<HTMLButtonElement>('[data-track="meadows"]').click();
     await vi.advanceTimersByTimeAsync(0);
-    expect(cfg()).toMatchObject({ on: true, track: 'laki' });
-    expect(q('[data-track="laki"]').classList.contains('sel')).toBe(true);
-    expect(q('[data-track="poranek"]').classList.contains('sel')).toBe(false);
-    expect(q('[data-radio-power]').textContent).toContain('wł.');
-    expect(made[0]!.src).toContain('/music/laki.m4a');
+    expect(cfg()).toMatchObject({ on: true, track: 'meadows' });
+    expect(q('[data-track="meadows"]').classList.contains('sel')).toBe(true);
+    expect(q('[data-track="morning"]').classList.contains('sel')).toBe(false);
+    expect(q('[data-radio-power]').textContent).toContain('on');
+    expect(made[0]!.src).toContain('/music/meadows.m4a');
     q<HTMLButtonElement>('[data-radio-next]').click();
-    expect(cfg().track).toBe('wieczor');
+    expect(cfg().track).toBe('evening');
     q<HTMLButtonElement>('[data-radio-repeat]').click();
     expect(cfg().repeat).toBe('one');
-    expect(q('[data-radio-repeat]').textContent).toBe('Один трек');
+    expect(q('[data-radio-repeat]').textContent).toBe('One track');
     q<HTMLButtonElement>('[data-radio-vol-down]').click();
     expect(cfg().volume).toBe(40);
     q<HTMLButtonElement>('[data-radio-everywhere]').click();
@@ -303,9 +303,9 @@ describe('экраны', () => {
     mountRadio(root, player, bus).open();
     mountMusicHud(root, player, { bus });
     root.querySelector<HTMLButtonElement>('[data-radio-power]')!.click();
-    root.querySelector<HTMLButtonElement>('[data-track="deszcz"]')!.click();
+    root.querySelector<HTMLButtonElement>('[data-track="rain"]')!.click();
     await settle();
-    expect(cfg()).toMatchObject({ on: true, track: 'deszcz' });
+    expect(cfg()).toMatchObject({ on: true, track: 'rain' });
     expect(made).toHaveLength(0);
     expect(root.querySelector('[data-radio-now]')!.textContent).toContain('?mute=1');
   });
@@ -320,7 +320,7 @@ describe('экраны', () => {
     expect(mini.hidden).toBe(true);
     note.click();
     expect(mini.hidden).toBe(false);
-    expect(root.querySelector('[data-mini-power]')!.textContent).toBe('Muzyka: wył.');
+    expect(root.querySelector('[data-mini-power]')!.textContent).toBe('Music: off');
     root.querySelector<HTMLButtonElement>('[data-mini-power]')!.click();
     await vi.advanceTimersByTimeAsync(0);
     expect(cfg().on).toBe(true);
@@ -345,23 +345,23 @@ describe('экраны', () => {
     const settings = mountSettings(root, { bus, music: player, getSound: () => true, setSound: () => undefined, exportSave: () => 'x', importSave: async () => ({ ok: true, message: '' }), reset: async () => undefined });
     settings.open();
     const q = <T extends Element>(s: string): T => root.querySelector<T>(s)!;
-    expect(q('[data-music-power]').textContent).toBe('Выкл');
+    expect(q('[data-music-power]').textContent).toBe('Off');
     q<HTMLButtonElement>('[data-music-power]').click();
     await vi.advanceTimersByTimeAsync(0);
     expect(cfg().on).toBe(true);
-    expect(q('[data-music-power]').textContent).toBe('Вкл');
+    expect(q('[data-music-power]').textContent).toBe('On');
     const sel = q<HTMLSelectElement>('[data-music-track]');
     expect(sel.options).toHaveLength(TRACKS.length);
-    sel.value = 'wieczor';
+    sel.value = 'evening';
     sel.dispatchEvent(new Event('change'));
-    expect(cfg().track).toBe('wieczor');
+    expect(cfg().track).toBe('evening');
     const vol = q<HTMLInputElement>('[data-music-volume]');
     vol.value = '15';
     vol.dispatchEvent(new Event('input'));
     expect(cfg().volume).toBe(15);
     expect(q('[data-music-volume-out]').textContent).toBe('15%');
     player.next();
-    expect(sel.value).toBe(stepTrack('wieczor', 1));
+    expect(sel.value).toBe(stepTrack('evening', 1));
     settings.close();
   });
 });

@@ -17,21 +17,21 @@ function setup(seen: string[] = []) {
 }
 
 describe('пузыри-подсказки', () => {
-  it('у стола, доски и коробки при первом подходе: польское название и русская подсказка, один раз', () => {
+  it('у стола, доски, коробки и полки при первом подходе: название и подсказка, один раз', () => {
     const { bus, node, marks } = setup();
-    expect(Object.keys(HINTS).sort()).toEqual(['board', 'bin', 'desk'].sort());
+    expect(Object.keys(HINTS).sort()).toEqual(['board', 'bin', 'desk', 'shelf'].sort());
     bus.emit('fx:near', { use: 'desk', id: 'desk', x: 100, y: 50 });
     expect(node().hidden).toBe(false);
-    expect(node().textContent).toBe('SłownikПосади слова');
+    expect(node().textContent).toBe('HandbookPlant cards');
     expect(node().style.left).toBe('100px');
     bus.emit('fx:near', null);
     expect(node().hidden).toBe(true);
     bus.emit('fx:near', { use: 'desk', id: 'desk', x: 100, y: 50 });
     expect(node().hidden).toBe(true); // второй раз не показывается
     bus.emit('fx:near', { use: 'board', id: 'board', x: 10, y: 10 });
-    expect(node().textContent).toBe('TablicaВыбери мини-игру');
+    expect(node().textContent).toBe('Mini-gamesPick a game');
     bus.emit('fx:near', { use: 'bin', id: 'bin', x: 10, y: 10 });
-    expect(node().textContent).toBe('SkrzynkaСюда урожай');
+    expect(node().textContent).toBe('Harvest boxHarvest goes here');
     expect(marks).toEqual(['desk', 'board', 'bin']);
   });
 

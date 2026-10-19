@@ -19,16 +19,14 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import art_core  # noqa: E402
 from art_core import OUT, SHEETS  # noqa: E402
-import art_cat  # noqa: E402
+import art_goose  # noqa: E402
 import art_crops  # noqa: E402
 import art_hero  # noqa: E402
 import art_props  # noqa: E402
 import art_tiles  # noqa: E402
-import art_world2  # noqa: E402
 import art_plants  # noqa: E402
-import art_beaver  # noqa: E402
 
-MODULES = [art_hero, art_cat, art_props, art_tiles, art_crops, art_world2, art_plants, art_beaver]
+MODULES = [art_hero, art_goose, art_props, art_tiles, art_crops, art_plants]
 
 
 def preview(path: Path, scale: int = 6) -> None:
@@ -39,7 +37,7 @@ def preview(path: Path, scale: int = 6) -> None:
     pal = load_palette()
     cells = []
     for sh in SHEETS.values():
-        if sh.sid in ('hero', 'cat', 'hero_portrait') and '--props' in sys.argv:
+        if sh.sid in ('hero', 'goose', 'hero_portrait') and '--props' in sys.argv:
             continue
         for g in sh.grids():
             cells.append(g)

@@ -107,6 +107,34 @@ def soil_patch(seed: int, mask: int):
     return g
 
 
+def water_patch(seed: int, mask: int):
+    """Вода бассейна (автотайл): рябь periodic по 16 px (стыкуется), светлая каёмка и камень-бортик у открытых сторон."""
+    rng = random.Random(77)  # зерно одно на все маски: клетки стыкуются
+    g = [['water.2'] * T for _ in range(T)]
+    for _ in range(22):
+        x, y = rng.randrange(T), rng.randrange(T)
+        g[y][x] = 'water.3' if rng.random() < 0.6 else 'water.1'
+    for gy in (3, 10):
+        for x in range(T):
+            if (x * 5 + gy) % 7 < 3:
+                g[gy][x] = 'water.4'
+                g[(gy + 1) % T][(x + 1) % T] = 'water.1'
+    for x, y in ((2, 6), (9, 13), (13, 1)):
+        g[y][x] = 'glass.2'
+    for y in range(T):
+        for x in range(T):
+            d = edge_dist(mask, x, y)
+            if corner_cut(mask, x, y):
+                g[y][x] = 'grass.1' if (x + y) % 2 else 'grass.2'
+            elif d == 0:
+                g[y][x] = 'stone.3'
+            elif d == 1:
+                g[y][x] = 'stone.2' if (x + y) % 2 else 'stone.3'
+            elif d == 2:
+                g[y][x] = 'water.4'
+    return g
+
+
 def floor(seed: int):
     rng = random.Random(seed)
     g = grid('plank.2')
@@ -197,6 +225,10 @@ def build() -> None:
         for mask in range(16):
             s.add(soil_patch(seed + mask, mask) if furrow else patch(mat, seed + mask, mask, furrow))
         emit(s)
+    w = Sheet('t_water', T, T, anchor=[8, 15])
+    for mask in range(16):
+        w.add(water_patch(0, mask))
+    emit(w)
     f = Sheet('t_fence', T, T, anchor=[8, 15])
     for mask in range(16):
         f.add(fence(mask))

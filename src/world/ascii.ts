@@ -31,17 +31,17 @@ export function parseAscii(map: LocationMap): ParsedMap {
   const legend = map.legend;
   const entry = (ch: string, where: string): LegendEntry => {
     const e = legend[ch];
-    if (!e) throw new AsciiError(`${map.id}: символа "${ch}" нет в легенде (${where})`);
+    if (!e) throw new AsciiError(`${map.id}: symbol "${ch}" is not in the legend (${where})`);
     return e;
   };
   entry(map.defaultGround, 'defaultGround');
   const rowsOf = (name: 'ground' | 'deco'): string[][] | null => {
     const rows = map.layers[name];
     if (!rows) return null;
-    if (rows.length !== h) throw new AsciiError(`${map.id}: слой ${name}: строк ${rows.length}, а size[1] = ${h}`);
+    if (rows.length !== h) throw new AsciiError(`${map.id}: layer ${name}: ${rows.length} rows, but size[1] = ${h}`);
     return rows.map((r, y) => {
       const cs = chars(r);
-      if (cs.length !== w) throw new AsciiError(`${map.id}: слой ${name}, строка ${y}: длина ${cs.length}, а size[0] = ${w}`);
+      if (cs.length !== w) throw new AsciiError(`${map.id}: layer ${name}, row ${y}: length ${cs.length}, but size[0] = ${w}`);
       return cs;
     });
   };
@@ -125,9 +125,9 @@ export function frameFor(
   const ch = grid[y]?.[x];
   if (ch === null || ch === undefined) return -1;
   const e = map.legend[ch];
-  if (!e) throw new AsciiError(`${map.id}: символа "${ch}" нет в легенде`);
+  if (!e) throw new AsciiError(`${map.id}: symbol "${ch}" is not in the legend`);
   const t = ts.tiles[e.tile];
-  if (!t) throw new AsciiError(`${map.id}: тайла "${e.tile}" нет в тайлсете ${ts.id}`);
+  if (!t) throw new AsciiError(`${map.id}: tile "${e.tile}" is not in tileset ${ts.id}`);
   switch (t.kind) {
     case 'single':
       return t.frames[0]!;

@@ -5,14 +5,11 @@ import type { BusEvents } from '../types/bus';
 import type { Dir, RoutedIntent } from '../types/input';
 import type { LocationMap, PropObject } from '../types/map';
 import { frameFor, tileLayers, type TilesetMeta, type Xy } from '../world/ascii';
-import { BeaverLayer } from './beaverLayer';
-import type { BeaverApi } from '../systems/beaver';
 import { FarmLayer } from './farmLayer';
-import { ZagrodaLayer, applyEntries } from './zagrodaLayer';
 import { pickZoom } from '../world/camera';
 import { LocationModel, type Actor, type WorldEvent } from '../world/location';
 import { PositionGate } from '../world/positionGate';
-import { getMap, resolveSpawn, routeTo, START, withDecor } from '../world/maps';
+import { getMap, resolveSpawn, START } from '../world/maps';
 
 // Сцена мира: карта, герой, кот, объекты. Логика в world/location.ts; сцена рисует и переводит события модели в шину.
 // Ввод приходит intents через bus (`input:intent`, to = world); тап по карте разбирает PointerSource через tileAt().
@@ -55,22 +52,6 @@ let guideArrow: { x: number; y: number } | null = null;
 bus.on('guide:arrow', (p) => {
   guideArrow = p;
 });
-/** «Idź» с доски (v2): к какому объекту (`use`) герой идёт сам; переживает смену карты (через двери). */
-let pendingGoto: string | null = null;
-/** v2: игра о Польше в нижней панели открылась не в Zagroda — сцена уходит туда (к участку `plot`). */
-let polskaGo: string | null = null;
-bus.on('world:goto', ({ use }) => {
-  pendingGoto = use;
-});
-/** «Na pole!» после игры во весь экран: герой сам идёт в Zagroda (через двери), там обход (`ZagrodaLayer`). */
-const TOUR_GOTO = '@zagroda';
-bus.on('polska:tour', ({ go }) => {
-  if (go) pendingGoto = TOUR_GOTO;
-});
-bus.on('polska:auto', ({ on, layout, plot }) => {
-  polskaGo = on && layout === 'panel' ? (plot ?? 'from_farm') : null;
-});
-
 /** Мини-игра закрыта: куда вернуть героя (`world:return`). Лежит до применения: сцена могла быть посреди перехода через дверь. */
 let pendingReturn: BusEvents['world:return'] | null = null;
 
@@ -115,10 +96,7 @@ export class World extends Phaser.Scene {
   private insets = { top: HUD_TOP_INSET, bottom: 0 };
   private cam0: { zoom: number; mw: number; mh: number; fitsW: boolean; fitsH: boolean } | null = null;
   private farm: FarmLayer | null = null;
-  private zagroda: ZagrodaLayer | null = null;
-  /** Бобёр (только ферма): гость на уровнях 0–9, хозяин хатки с 10-го; `api` кладёт в реестр main.ts. */
-  private beaver: BeaverLayer | null = null;
-  /** Спрайты объектов карты по ключу `prop:<id>` (слой Zagroda меняет их вид по прогрессу). */
+  /** Спрайты объектов карты по ключу `prop:<id>`. */
   private propSprites = new Map<string, Phaser.GameObjects.Sprite>();
   private groundLayer: Phaser.Tilemaps.TilemapLayer | null = null;
   private tileset: TilesetMeta | null = null;
@@ -152,8 +130,7 @@ export class World extends Phaser.Scene {
   create(): void {
     this.cameras.main.setBackgroundColor(BG_COLOR);
     const id = this.start0.map ?? START.map;
-    // Украшения к сегодняшней дате (знич 1–2.11, ёлка 24.12–6.01…): список кладёт main.ts в реестр игры.
-    this.mapDef = withDecor(getMap(id), new Set((this.registry.get('decor') as string[] | undefined) ?? []));
+    this.mapDef = getMap(id);
     const spawn = resolveSpawn(this.mapDef, this.start0.spawn ?? START.spawn, this.start0.facing);
     this.sprites = this.cache.json.get('sprites') as SpritesMeta;
     this.model = new LocationModel(this.mapDef, spawn.tile, { facing: spawn.facing, spriteSize: (id) => this.sprites[id]?.size });
@@ -165,27 +142,11 @@ export class World extends Phaser.Scene {
     this.buildActors();
     this.marker = this.add.graphics().setDepth(10_000);
     this.farm = this.mapDef.id === 'farm' ? new FarmLayer({ scene: this, model: this.model, sprites: this.sprites, hero: this.hero, soil: (c) => this.soil(c), toScreen: (x, y) => this.toScreen(x, y), inputOn: () => this.inputOn }) : null;
-    this.zagroda = this.mapDef.id === 'zagroda' ? new ZagrodaLayer({ scene: this, model: this.model, sprites: this.sprites, props: this.propSprites, toScreen: (x, y) => this.toScreen(x, y) }) : null;
-    const beaverApi = this.registry.get('beaver') as BeaverApi | undefined;
-    this.beaver =
-      this.mapDef.id === 'farm' && beaverApi
-        ? new BeaverLayer({ scene: this, model: this.model, sprites: this.sprites, api: beaverApi, toScreen: (x, y) => this.toScreen(x, y), placeShadow: (cx, b, w, d) => this.placeShadow(cx, b, w, d), auto: () => !!this.farm?.auto })
-        : null;
-    // Бобёр поселился (main.ts уже положил хатку и пруд в реестр): сцена пересоздаётся на той же клетке, и они появляются.
-    const offSettled = bus.on('beaver:settled', () => {
-      if (this.mapDef.id === 'farm' && !this.leaving) this.time.delayedCall(400, () => !this.leaving && this.go('farm', [this.model.player.tile[0], this.model.player.tile[1]], this.model.player.facing));
-    });
-    const offGoto = bus.on('world:goto', () => setTimeout(() => this.runGoto(), 0));
-    const offTour = bus.on('polska:tour', ({ go }) => go && setTimeout(() => this.runGoto(), 0));
-    const offPolska = bus.on('polska:auto', () => this.polskaToZagroda());
     // Возврат к точке входа после игры: сцена дослушивает все обработчики шины (флаги автобега гаснут) и только потом ставит героя.
     const offReturn = bus.on('world:return', (s) => {
       pendingReturn = s;
       setTimeout(() => this.applyReturn(), 0);
     });
-    // Точки входа v2 (карта, календарь, мачта, сезонная доска) — кадр по прогрессу.
-    applyEntries(this.propSprites, this.sprites);
-    const offEntries = bus.on('polska:plots', ({ entries }) => entries && applyEntries(this.propSprites, this.sprites, entries));
     const offAuto = bus.on('farm:auto', ({ on, bottom }) => {
       this.panelBottom = on ? bottom : 0;
       this.layout();
@@ -206,19 +167,10 @@ export class World extends Phaser.Scene {
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
       offIntent();
       offInput();
-      offSettled();
-      this.beaver?.dispose();
-      this.beaver = null;
       offAuto();
-      offGoto();
-      offTour();
-      offPolska();
       offReturn();
-      offEntries();
       this.farm?.dispose();
       this.farm = null;
-      this.zagroda?.dispose();
-      this.zagroda = null;
       watchers.delete(onDpad);
       this.game.events.off(Phaser.Core.Events.HIDDEN, onHidden);
       this.scale.off(Phaser.Scale.Events.RESIZE, this.layout, this);
@@ -227,9 +179,6 @@ export class World extends Phaser.Scene {
     bus.emit('world:location', { id: this.mapDef.id, controls: 'walk' });
     const start = this.posGate.tick(false, this.mapDef.id, this.model.player.tile, this.model.player.facing);
     if (start) bus.emit('world:position', start);
-    // Пришли через дверь по «Idź» — идём дальше; игра о Польше открыта не здесь — в Zagroda.
-    if (pendingGoto) this.time.delayedCall(220, () => this.runGoto());
-    this.polskaToZagroda();
     if (pendingReturn) this.applyReturn();
   }
 
@@ -241,38 +190,10 @@ export class World extends Phaser.Scene {
     const s = pendingReturn;
     if (!s || this.leaving || !this.model) return;
     pendingReturn = null;
-    pendingGoto = null;
     const p = this.model.player;
-    const idle = !this.model.busy && !this.farm?.blocking && !this.zagroda?.auto;
+    const idle = !this.model.busy && !this.farm?.blocking;
     if (s.map === this.mapDef.id && p.tile[0] === s.x && p.tile[1] === s.y && idle) return;
     this.go(s.map, [s.x, s.y], s.facing);
-  }
-
-  /**
-   * «Idź» (v2): объект с этим `use` на этой карте — подойти и открыть (как тап по нему); на другой карте — к двери по маршруту
-   * (`routeTo`), дальше продолжит сцена новой карты. Ручной ввод отменяет.
-   */
-  private runGoto(): void {
-    const use = pendingGoto;
-    if (!use || this.leaving || !this.inputOn) return;
-    // «Na pole!»: только дойти до Zagroda (там обход), объект не открывать.
-    if (use === TOUR_GOTO && this.mapDef.id === 'zagroda') {
-      pendingGoto = null;
-      return;
-    }
-    const r = routeTo(this.mapDef.id, use === TOUR_GOTO ? 'zplot' : use);
-    if (!r) {
-      pendingGoto = null;
-      return;
-    }
-    if (r.here) pendingGoto = null;
-    this.model.intent({ type: 'interact', target: r.key });
-  }
-
-  /** Игра о Польше в нижней панели: герой уходит в Zagroda (переход шагом через калитку не ждём — экран уже открыт). */
-  private polskaToZagroda(): void {
-    if (!polskaGo || this.leaving || this.mapDef.id === 'zagroda') return;
-    this.go('zagroda', getMap('zagroda').spawns[polskaGo] ? polskaGo : 'from_farm');
   }
 
   /** Экранные CSS-пиксели канваса → клетка и объект под пальцем (для PointerSource). */
@@ -295,11 +216,6 @@ export class World extends Phaser.Scene {
     return target ? { tile: [tx, ty], target } : { tile: [tx, ty] };
   }
 
-  /** Бобёр для проверок в браузере и тестах (`force`, `state`); не на ферме — null. */
-  get beaverLayer(): BeaverLayer | null {
-    return this.beaver;
-  }
-
   /** Состояние для проверок в браузере и тестах. */
   get state(): { location: string; tile: Xy; facing: Dir; moving: boolean; aBubble: string | null; cat: { tile: Xy; mode: string } | null; zoom: number } {
     const m = this.model;
@@ -318,11 +234,9 @@ export class World extends Phaser.Scene {
   override update(time: number, delta: number): void {
     if (this.leaving) return;
     this.farm?.update(time);
-    this.zagroda?.update(time);
     for (const ev of this.model.update(Math.min(delta, 100))) this.onWorldEvent(ev, time);
-    this.beaver?.update(time, Math.min(delta, 100));
     // Герой стоит (после ходьбы, автобега мини-игры, доигрыша очереди): новая клетка или поворот — в сохранение (B3).
-    const busy = this.model.busy || !!this.farm?.blocking || !!this.zagroda?.auto;
+    const busy = this.model.busy || !!this.farm?.blocking;
     const pos = this.posGate.tick(busy, this.mapDef.id, this.model.player.tile, this.model.player.facing);
     if (pos) bus.emit('world:position', pos);
     this.syncHero(time);
@@ -449,7 +363,7 @@ export class World extends Phaser.Scene {
   // ───────────── построение ─────────────
 
   private createAnims(): void {
-    for (const id of ['hero', 'cat']) {
+    for (const id of ['hero', 'goose']) {
       const meta = this.sprites[id];
       if (!meta) continue;
       for (const [name, frames] of Object.entries(meta.anims)) {
@@ -469,7 +383,7 @@ export class World extends Phaser.Scene {
     const { w, h } = this.model.parsed;
     const map = this.make.tilemap({ width: w, height: h, tileWidth: T, tileHeight: T });
     const tileset = map.addTilesetImage(TILESET, TILESET, T, T, ts.margin, ts.spacing);
-    if (!tileset) throw new Error('World: тайлсет не загрузился');
+    if (!tileset) throw new Error('World: tileset failed to load');
     const put = (name: string, grid: number[][], depth: number): void => {
       if (!grid.some((r) => r.some((i) => i >= 0))) return;
       const layer = map.createBlankLayer(name, tileset, 0, 0, w, h, T, T);
@@ -540,19 +454,14 @@ export class World extends Phaser.Scene {
       if (o.kind !== 'prop') continue;
       const src = o.src as PropObject;
       const meta = this.sprites[src.sprite];
-      if (!meta) throw new Error(`World: нет спрайта "${src.sprite}"`);
+      if (!meta) throw new Error(`World: no sprite "${src.sprite}"`);
       const cx = (o.at[0] + o.size[0] / 2) * T;
       const bottom = (o.at[1] + o.size[1]) * T;
       const s = this.add.sprite(cx, bottom - (src.dy ?? 0), ATLAS, meta.frames[0]);
       s.setOrigin(0.5, 1);
       s.setDepth(src.depth === 'floor' ? 1.5 : src.depth === 'wall' ? 2 : 10 + bottom + (src.z ?? 0));
       // Украшение с несколькими кадрами (огонёк знича, флажок, гирлянда) — тихая петля.
-      if ((src.decor || src.unlock) && meta.frames.length > 1) {
-        const key = `decor:${src.sprite}`;
-        if (!this.anims.exists(key)) this.anims.create({ key, frames: meta.frames.map((f) => ({ key: ATLAS, frame: f })), frameRate: src.unlock ? 1.5 : 4, repeat: -1 });
-        s.play(key);
-      }
-      if (src.shadow) this.placeShadow(cx, bottom - 1, src.shadow, 2.5);
+            if (src.shadow) this.placeShadow(cx, bottom - 1, src.shadow, 2.5);
       s.setData('sprite', src.sprite);
       this.propSprites.set(o.key, s);
     }
@@ -567,7 +476,7 @@ export class World extends Phaser.Scene {
     const c = this.model.cat;
     if (c) {
       this.catShadow = this.placeShadow(0, 0, 10, 9);
-      this.catSprite = this.add.sprite(0, 0, ATLAS, 'cat/0').setOrigin(0.5, 1);
+      this.catSprite = this.add.sprite(0, 0, ATLAS, 'goose/0').setOrigin(0.5, 1);
       this.syncCat();
     }
   }
@@ -576,11 +485,6 @@ export class World extends Phaser.Scene {
 
   private onIntent(i: RoutedIntent): void {
     if (i.to !== 'world' || this.leaving || !this.inputOn || this.farm?.blocking) return;
-    // Игрок сам пошёл — «Idź» отменяется.
-    if (i.type === 'move' || i.type === 'goto') {
-      pendingGoto = null;
-      this.zagroda?.cancelTour();
-    }
     this.model.intent(i);
   }
 
@@ -648,7 +552,7 @@ export class World extends Phaser.Scene {
     if (!c || !s) return;
     this.put(s, this.catShadow, c, 0, c.perch && !c.step ? -4 : 0);
     const side = c.facing === 'left' ? 'left' : 'right';
-    const key = c.mode === 'follow' ? `cat:${c.step ? 'walk' : 'idle'}_${c.facing}` : ['lie', 'sniff', 'crouch', 'pounce'].includes(c.mode) ? `cat:${c.mode}_${side}` : `cat:${c.mode}`;
+    const key = c.mode === 'follow' ? `goose:${c.step ? 'walk' : 'idle'}_${c.facing}` : ['lie', 'sniff', 'crouch', 'pounce'].includes(c.mode) ? `goose:${c.mode}_${side}` : `goose:${c.mode}`;
     if (s.anims.currentAnim?.key !== key) s.play(key);
   }
 }

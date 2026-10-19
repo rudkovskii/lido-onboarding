@@ -136,13 +136,13 @@ describe('мелочи', () => {
     expect(parseProfile('0')).toBeNull();
     expect(parseProfile('a b')).toBeNull();
     expect(parseProfile(null)).toBeNull();
-    expect(profileDbName('t1')).toBe('polski-farm-t1');
+    expect(profileDbName('t1')).toBe('lido-onboarding-t1');
     const ls = fakeLs();
     const a = new GameStorage({ idb: null, ls, profile: 't1', debounceMs: 0 });
     await a.load(1);
     a.update((s) => ({ ...s, hints: ['touch'] }), 2);
     await a.flush();
-    expect([...ls.m.keys()]).toEqual(['polski-farm-t1:pq_save']);
+    expect([...ls.m.keys()]).toEqual(['lido-onboarding-t1:lo_save']);
     const main = new GameStorage({ idb: null, ls });
     expect((await main.load(3)).created).toBe(true);
     const again = new GameStorage({ idb: null, ls, profile: 't1' });
@@ -155,7 +155,7 @@ describe('мелочи', () => {
     const p = mountSettings(root, { bus: testBus(), muted: true, version: '0.2.0+abc1234', profile: 't1', getSound: () => true, setSound, exportSave: () => '', importSave: async () => ({ ok: true, message: '' }), reset: async () => {} });
     p.open();
     const btn = root.querySelector<HTMLButtonElement>('.pq-toggle')!;
-    expect(btn.textContent).toBe('Выкл');
+    expect(btn.textContent).toBe('Off');
     btn.click();
     expect(setSound).not.toHaveBeenCalled();
     expect(root.querySelector('[data-version]')!.textContent).toContain('0.2.0+abc1234');
@@ -163,24 +163,23 @@ describe('мелочи', () => {
   });
 });
 
-describe('HUD: уровень и путь к A1 (V11c)', () => {
-  it('«Уровень 7/20», «до A1: 12%», A1 достигнут, тап открывает путь', async () => {
-    const { mountHud, wordsRu } = await import('../src/ui/hud');
+describe('HUD: уровень и путь к Onboarded', () => {
+  it('«Level 7/8», «to Onboarded: 12%», готово, тап открывает путь', async () => {
+    const { mountHud } = await import('../src/ui/hud');
     const bus = testBus();
     const root = document.createElement('div');
     let taps = 0;
     mountHud(root, { bus, onSettings: () => {}, onLevel: () => taps++ });
     const next = () => root.querySelector('[data-xp-next]')!.textContent;
     const name = () => root.querySelector('[data-xp-level]')!.textContent;
-    bus.emit('hud:xp', { level: 'Уровень 7', ratio: 0.2, sub: 7, of: 20, pct: 0.129, toNext: 12 });
-    expect(name()).toBe('Уровень 7/20');
-    expect(root.querySelector('[data-xp]')!.getAttribute('title')).toBe('До уровня 8: 12 оч.');
-    expect(next()).toBe('до A1: 12%');
-    bus.emit('hud:xp', { level: 'A1', ratio: 1, sub: 21, of: 20, pct: 1, toNext: null });
-    expect(name()).toBe('A1');
-    expect(next()).toBe('A1 достигнут');
+    bus.emit('hud:xp', { level: 'Level 7', ratio: 0.2, sub: 7, of: 8, pct: 0.129, toNext: 12 });
+    expect(name()).toBe('Level 7/8');
+    expect(root.querySelector('[data-xp]')!.getAttribute('title')).toBe('To Level 8: 12 pts');
+    expect(next()).toBe('to Onboarded: 12%');
+    bus.emit('hud:xp', { level: 'Onboarded 🎉', ratio: 1, sub: 9, of: 8, pct: 1, toNext: null });
+    expect(name()).toBe('Onboarded 🎉');
+    expect(next()).toBe('Onboarded 🎉');
     root.querySelector<HTMLElement>('[data-xp]')!.click();
     expect(taps).toBe(1);
-    expect([wordsRu(2), wordsRu(11), wordsRu(22), wordsRu(105)]).toEqual(['слова', 'слов', 'слова', 'слов']);
   });
 });

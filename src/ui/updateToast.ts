@@ -24,8 +24,8 @@ export function mountUpdateToast(root: HTMLElement, bus: Bus<BusEvents> = global
         toast = null;
         bus.emit('app:reload', {});
       },
-    }, 'Обновить');
-    toast = el('div', { class: 'pq-update-toast', role: 'status', 'data-update': '' }, el('span', {}, 'Новая версия ·'), go);
+    }, 'Update');
+    toast = el('div', { class: 'pq-update-toast', role: 'status', 'data-update': '' }, el('span', {}, 'New version ·'), go);
     root.append(toast);
   });
   return () => {

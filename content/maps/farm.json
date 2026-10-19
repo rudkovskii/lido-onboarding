@@ -1,6 +1,6 @@
 {
  "id": "farm",
- "name": "Ферма",
+ "name": "Lido Campus",
  "size": [
   28,
   22
@@ -27,6 +27,11 @@
    "auto": true,
    "solid": true,
    "layer": "deco"
+  },
+  "W": {
+   "tile": "water",
+   "auto": true,
+   "solid": true
   }
  },
  "layers": {
@@ -41,13 +46,13 @@
    "GggggpgggggggggggggggggggggG",
    "GggggpgggggggggggggggggpgggG",
    "GggggpgggggggggggggggggpgggG",
-   "Gggggppppppppppppppppppppppp",
+   "GggggppppppppppppppppppppppG",
    "GggggggggggggggppggggggggggG",
    "GggggggggggggggggggggggggggG",
    "GggggggggggggggggggggggggggG",
-   "GgggggggggggssssssgggggggggG",
-   "GgggggggggggssssssgggggggggG",
-   "GgggggggggggssssssgggggggggG",
+   "GgWWWWWWggggssssssgggggggggG",
+   "GgWWWWWWggggssssssgggggggggG",
+   "GgWWWWWWggggssssssgggggggggG",
    "GgggggggggggssssssgggggggggG",
    "GggggggggggggggggggggggggggG",
    "GggggggggggggggggggggggggggG",
@@ -94,11 +99,6 @@
    5,
    6,
    "down"
-  ],
-  "from_zagroda": [
-   26,
-   10,
-   "left"
   ]
  },
  "objects": [
@@ -149,7 +149,7 @@
    "type": "prop",
    "id": "bin",
    "use": "bin",
-   "label": "Skrzynka · Коробка урожая",
+   "label": "Harvest box",
    "sprite": "bin",
    "at": [
     9,
@@ -166,52 +166,11 @@
    "type": "prop",
    "id": "board",
    "use": "board",
-   "label": "Tablica · Выбор игры",
+   "label": "Mini-games",
    "sprite": "board",
    "at": [
     12,
     9
-   ],
-   "size": [
-    2,
-    1
-   ],
-   "shadow": 28
-  },
-  {
-   "type": "exit",
-   "at": [
-    27,
-    10
-   ],
-   "to": "zagroda",
-   "spawn": "from_farm"
-  },
-  {
-   "type": "prop",
-   "id": "mast",
-   "use": "mast",
-   "label": "Maszt · Гимн и символы",
-   "sprite": "w2_mast",
-   "at": [
-    11,
-    4
-   ],
-   "size": [
-    1,
-    1
-   ],
-   "shadow": 12
-  },
-  {
-   "type": "prop",
-   "id": "seasonBoard",
-   "use": "seasonBoard",
-   "label": "Tablica sezonowa · Праздники",
-   "sprite": "w2_season_board",
-   "at": [
-    24,
-    8
    ],
    "size": [
     2,
@@ -929,20 +888,6 @@
   },
   {
    "type": "prop",
-   "id": "tree_in2",
-   "sprite": "tree2",
-   "at": [
-    3,
-    15
-   ],
-   "size": [
-    1,
-    1
-   ],
-   "shadow": 22
-  },
-  {
-   "type": "prop",
    "id": "tree_in3",
    "sprite": "tree",
    "at": [
@@ -1251,110 +1196,61 @@
   },
   {
    "type": "prop",
-   "id": "decor_znicz0",
-   "sprite": "w2_znicz",
+   "id": "sunbed0",
+   "sprite": "sunbed",
    "at": [
-    19,
-    11
+    2,
+    17
    ],
    "size": [
-    1,
+    2,
     1
    ],
-   "decor": "dec.znicze",
-   "shadow": 8
+   "shadow": 26,
+   "solid": false
   },
   {
    "type": "prop",
-   "id": "decor_znicz1",
-   "sprite": "w2_znicz",
-   "at": [
-    20,
-    11
-   ],
-   "size": [
-    1,
-    1
-   ],
-   "decor": "dec.znicze",
-   "shadow": 8
-  },
-  {
-   "type": "prop",
-   "id": "decor_znicz2",
-   "sprite": "w2_znicz",
-   "at": [
-    21,
-    11
-   ],
-   "size": [
-    1,
-    1
-   ],
-   "decor": "dec.znicze",
-   "shadow": 8
-  },
-  {
-   "type": "prop",
-   "id": "decor_bunting_maj",
-   "sprite": "w2_bunting",
+   "id": "sunbed1",
+   "sprite": "sunbed",
    "at": [
     4,
-    3
+    17
    ],
    "size": [
-    3,
+    2,
     1
    ],
-   "solid": false,
-   "decor": "dec.flagi_maj",
-   "z": 64
+   "shadow": 26,
+   "solid": false
   },
   {
    "type": "prop",
-   "id": "decor_bunting_lis",
-   "sprite": "w2_bunting",
+   "id": "umbrella0",
+   "sprite": "umbrella",
    "at": [
-    4,
-    3
+    7,
+    17
    ],
    "size": [
-    3,
+    1,
     1
    ],
-   "solid": false,
-   "decor": "dec.flagi_listopad",
-   "z": 64
+   "shadow": 12
   },
   {
    "type": "prop",
-   "id": "beaver_pond",
-   "sprite": "beaver_pond",
+   "id": "flower12",
+   "sprite": "flower_white",
    "at": [
-    24,
+    8,
     14
    ],
    "size": [
-    2,
-    3
+    1,
+    1
    ],
-   "depth": "floor",
-   "unlock": "beaver.home"
-  },
-  {
-   "type": "prop",
-   "id": "beaver_lodge",
-   "sprite": "beaver_lodge",
-   "at": [
-    22,
-    15
-   ],
-   "size": [
-    2,
-    2
-   ],
-   "shadow": 30,
-   "unlock": "beaver.home"
+   "solid": false
   }
  ]
 }

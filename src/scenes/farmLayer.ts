@@ -53,7 +53,7 @@ interface Plant {
   wet: Phaser.GameObjects.GameObject | null;
 }
 
-const STAGE_FRAME: Record<string, string> = { seed: 'crop_seed', sprout: 'crop_sprout', bush: 'crop_bush', ripe: 'crop_ripe', overripe: 'crop_overripe' };
+const STAGE_FRAME: Record<string, string> = { seed: 'crop_seed', sprout: 'crop_sprout', bush: 'crop_bush', ripe: 'crop_ripe' };
 
 export class FarmLayer {
   /** Анимация героя поверх ходьбы (`water`, `fert`, `throw`) и ноша над головой. */
@@ -132,28 +132,25 @@ export class FarmLayer {
   }
 
   /**
-   * Спрайт стадии; нет кадра в атласе (арт ещё не собран) — простая фигура. Семечко и перезревшее общие; росток, кустик и урожай
-   * по виду слова (`look`): куст-вариант, плод цвета, у существительного на кусте-основе сидит мини-предмет (`ic`). Фразы и единицы — прежние.
+   * Спрайт стадии; нет кадра в атласе (арт ещё не собран) — простая фигура. Семечко общее; росток, кустик и урожай — один из
+   * 16 кустов по карточке (`look`).
    */
   private makePlant(v: PlantView): { spr: Phaser.GameObjects.Sprite | Phaser.GameObjects.Graphics; ic: Phaser.GameObjects.Sprite | null } {
     const x = v.tile[0] * T + T / 2;
     const bottom = v.tile[1] * T + T;
     const depth = 10 + bottom - 1;
-    const fr = v.look && !v.phrase ? framesOf(v.look) : null;
+    const fr = v.look ? framesOf(v.look) : null;
     const own = fr ? (v.stage === 'sprout' ? fr.sprout : v.stage === 'bush' ? fr.bush : v.stage === 'ripe' ? fr.ripe : null) : null;
     const ownFrame = this.named(own);
     if (ownFrame) {
       const spr = this.h.scene.add.sprite(x, bottom, ATLAS, ownFrame).setOrigin(0.5, 1).setDepth(depth);
-      const mini = v.stage === 'ripe' && fr?.icon ? this.named(fr.icon.frame) : null;
-      // Мини-предмет: тот же якорь, что у куста (низ клетки), поэтому подпрыгивание и дрожь общие.
-      const ic = mini && fr?.icon ? this.h.scene.add.sprite(x, bottom, ATLAS, mini).setOrigin((8 - fr.icon.dx) / T, (2 * T - fr.icon.dy) / T).setDepth(depth + 0.1) : null;
-      return { spr, ic };
+      return { spr, ic: null };
     }
-    const name = v.stage === 'ripe' && v.phrase ? 'crop_ripe_phrase' : STAGE_FRAME[v.stage]!;
+    const name = STAGE_FRAME[v.stage]!;
     const f = this.frame(name);
     if (f) return { spr: this.h.scene.add.sprite(x, bottom, ATLAS, f).setOrigin(0.5, 1).setDepth(depth), ic: null };
     const g = this.h.scene.add.graphics().setDepth(depth);
-    const colors: Record<string, number> = { seed: 0x7a4b2c, sprout: 0x7ab44f, bush: 0x4f8a35, ripe: 0xd0492f, overripe: 0xc8a548 };
+    const colors: Record<string, number> = { seed: 0x7a4b2c, sprout: 0x7ab44f, bush: 0x4f8a35, ripe: 0xd0492f };
     const r = v.stage === 'seed' ? 2 : v.stage === 'sprout' ? 3 : 5;
     g.fillStyle(colors[v.stage] ?? 0x4f8a35, 1).fillCircle(x, bottom - 4 - r, r);
     return { spr: g, ic: null };
@@ -361,10 +358,7 @@ export class FarmLayer {
           Object.assign(p, this.makePlant(v));
         }
         this.carrying = true;
-        const phrase = j.act.id.startsWith('p.');
-        // Плод над головой — тот же мини-предмет (или плод цвета), что рос на кусте; куст-растение и фраза несут общий.
-        const own = p?.view.look && !phrase ? this.named(framesOf(p.view.look).held) : null;
-        const f = own ?? this.frame(phrase ? 'item_crop_phrase' : 'item_crop') ?? this.frame(phrase ? 'crop_ripe_phrase' : 'crop_ripe');
+        const f = this.frame('item_crop') ?? this.frame('crop_ripe');
         if (f) {
           // Плод поднимается над головой: появляется «с хлопком».
           const it = this.h.scene.add.sprite(0, 0, ATLAS, f).setOrigin(0.5, 1).setScale(0.4);

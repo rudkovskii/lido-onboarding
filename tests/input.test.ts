@@ -375,7 +375,6 @@ describe('слои ввода', () => {
     expect(scan('src/scenes/Location.ts', "sprite.on('pointerdown', f)")).toHaveLength(1);
     expect(scan('src/ui/screens/x.ts', "window.addEventListener('keydown', f)")).toHaveLength(1);
     expect(scan('src/ui/x.ts', 'el("button", { onpointerdown: f })')).toHaveLength(1);
-    expect(scan('src/ui/keyboard/attach.ts', "field.addEventListener('keydown', f)")).toHaveLength(0);
     expect(scan('src/input/keyboard.ts', "target.addEventListener('keydown', f)")).toHaveLength(0);
   });
 });

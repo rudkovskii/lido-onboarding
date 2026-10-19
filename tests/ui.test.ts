@@ -11,13 +11,13 @@ describe('HUD', () => {
     const bus = testBus();
     let opened = 0;
     const hud = mountHud(root, { onSettings: () => opened++, bus });
-    expect(root.querySelector('[data-xp-level]')?.textContent).toBe('Старт');
+    expect(root.querySelector('[data-xp-level]')?.textContent).toBe('Start');
     expect(root.querySelector<HTMLElement>('.pq-xp-fill')?.style.width).toBe('0%');
     hud.gear.click();
     expect(opened).toBe(1);
-    bus.emit('hud:xp', { level: 'Уровень 2', ratio: 0.5, sub: 2, of: 20, pct: 0.12 });
-    expect(root.querySelector('[data-xp-level]')?.textContent).toBe('Уровень 2/20');
-    expect(root.querySelector('[data-xp-next]')?.textContent).toBe('до A1: 12%');
+    bus.emit('hud:xp', { level: 'Level 2', ratio: 0.5, sub: 2, of: 8, pct: 0.12 });
+    expect(root.querySelector('[data-xp-level]')?.textContent).toBe('Level 2/8');
+    expect(root.querySelector('[data-xp-next]')?.textContent).toBe('to Onboarded: 12%');
     expect(root.querySelector<HTMLElement>('.pq-xp-fill')?.style.width).toBe('50%');
     hud.dispose();
   });
