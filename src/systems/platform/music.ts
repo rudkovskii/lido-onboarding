@@ -33,7 +33,7 @@ export interface MusicDeps {
 }
 
 export interface MusicPlayer extends MusicControl {
-  /** Игрок вошёл в `home`/`farm`: при выключенном «по всей ферме» музыка играет только дома. */
+  /** Игрок вошёл в `home`/`plan`: при выключенном «по всей кампус» музыка играет только дома. */
   setLocation(id: string): void;
   /** Мини-игра открыта: музыка тише. */
   setDuck(on: boolean): void;
@@ -49,7 +49,7 @@ export function createMusicPlayer(deps: MusicDeps): MusicPlayer {
   let gain: GainNode | null = null;
   let fixedVolume = false;
   let loadedId = '';
-  let location = 'home';
+  let location = 'office';
   let duck = false;
   let blocked = false;
   /** Множитель плавного перехода 0..1. */
@@ -61,7 +61,7 @@ export function createMusicPlayer(deps: MusicDeps): MusicPlayer {
 
   const cfg = (): MusicSettings => ({ ...MUSIC_DEFAULT, ...deps.get() });
   const hidden = (): boolean => doc.visibilityState === 'hidden';
-  const placeOk = (c: MusicSettings): boolean => c.everywhere || location === 'home';
+  const placeOk = (c: MusicSettings): boolean => c.everywhere || location === 'office';
   const wanted = (c = cfg()): boolean => c.on && !muted && !hidden() && placeOk(c);
   const view = (): MusicView => ({ ...cfg(), playing: !!audio && !audio.paused && !blocked && wanted(), muted });
   const emit = (): void => {

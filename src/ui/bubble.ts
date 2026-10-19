@@ -1,5 +1,5 @@
 // Пузырь-заглушка над миром: название объекта, с которым герой что-то сделал. Настоящие экраны (словарь, доска,
-// коробка, банки, сон) приходят в F-03 и слушают то же событие `world:interact`.
+// экран, банки, сон) приходят в F-03 и слушают то же событие `world:interact`.
 import { bus as globalBus, type Bus } from '../systems/bus';
 import type { BusEvents } from '../types/bus';
 import { el } from './dom';

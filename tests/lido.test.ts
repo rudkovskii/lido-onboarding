@@ -3,8 +3,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { CARDS, CARD_BY_ID, GAME_MODES, MODE_TRACK, SCENARIOS, STRUCTURE_QUESTIONS, TRACKS, cardsOf, type GameMode } from '../src/systems/content';
 import { createEntryPoint } from '../src/systems/entryPoint';
-import { createFarm, type Farm } from '../src/systems/farm';
-import { ANSWERS_TO_HARVEST, newGarden, type GardenSave } from '../src/systems/garden';
+import { createPlan, type Plan } from '../src/systems/plan';
+import { ANSWERS_TO_MASTER, newPlan, type PlanSave } from '../src/systems/progress';
 import { grade, makeQuestion, type Question } from '../src/systems/quiz';
 import { TOTAL, THRESHOLDS, pathOf } from '../src/systems/xp';
 import type { BusEvents } from '../src/types/bus';
@@ -15,10 +15,10 @@ import { seeded, testBus } from './helpers';
 
 function setup(seed = 3) {
   const bus = testBus();
-  let g: GardenSave = newGarden();
+  let g: PlanSave = newPlan();
   let t = 1_000_000;
-  const farm = createFarm({ bus, load: () => g, save: (x) => (g = x), now: () => (t += 1000), rand: seeded(seed) });
-  return { bus, farm, garden: () => g };
+  const plan = createPlan({ bus, load: () => g, save: (x) => (g = x), now: () => (t += 1000), rand: seeded(seed) });
+  return { bus, plan, saved: () => g };
 }
 
 /** Верный ответ на задание (как его даст игрок). */
@@ -41,29 +41,29 @@ describe('контент', () => {
   });
   it('путь: уровни растут, «Onboarded» только когда выучено всё', () => {
     expect(THRESHOLDS).toHaveLength(8);
-    expect(pathOf({ grown: TOTAL - 1, partial: 0.9 }).done).toBe(false);
-    expect(pathOf({ grown: TOTAL, partial: 0 })).toMatchObject({ done: true, label: 'Onboarded 🎉' });
+    expect(pathOf({ mastered: TOTAL - 1, partial: 0.9 }).done).toBe(false);
+    expect(pathOf({ mastered: TOTAL, partial: 0 })).toMatchObject({ done: true, label: 'Onboarded 🎉' });
   });
 });
 
-describe('игры: задание привязано к карточке, верный ответ растит, неверный нет', () => {
+describe('игры: задание привязано к карточке, верный ответ двигает карточку, неверный нет', () => {
   const NAME: Record<GameMode, string> = { 1: 'Pool Rules', 2: "Who's Who", 3: 'Staking 101' };
   for (const mode of GAME_MODES) {
-    it(`${NAME[mode]}: задание из своего трека, правильный ответ растит карточку, неправильный не растит`, () => {
-      const { farm } = setup();
+    it(`${NAME[mode]}: задание из своего трека, правильный ответ двигает карточку, неправильный не двигает`, () => {
+      const { plan } = setup();
       const ids = cardsOf(MODE_TRACK[mode]).slice(0, 3).map((c) => c.id);
-      farm.plant(ids);
-      const q = farm.next(mode)!;
+      plan.addCards(ids);
+      const q = plan.next(mode)!;
       expect(q).toBeTruthy();
       expect(CARD_BY_ID.get(q.id)?.track).toBe(MODE_TRACK[mode]);
-      const bad = farm.answer(q, wrong(q));
+      const bad = plan.answer(q, wrong(q));
       expect(bad.ok).toBe(false);
-      expect(farm.info(q.id).stage).toBe('seed');
-      expect(farm.info(q.id).drops).toBe(0);
-      const q2 = farm.next(mode, q.id)!;
-      const good = farm.answer(q2, right(q2));
+      expect(plan.info(q.id).stage).toBe('new');
+      expect(plan.info(q.id).drops).toBe(0);
+      const q2 = plan.next(mode, q.id)!;
+      const good = plan.answer(q2, right(q2));
       expect(good.ok).toBe(true);
-      expect(farm.info(q.id).stage).toBe('sprout'); // семя → росток за 1 верный
+      expect(plan.info(q.id).stage).toBe('started'); // семя → росток за 1 верный
     });
   }
 
@@ -98,66 +98,66 @@ describe('игры: задание привязано к карточке, ве�
   });
 });
 
-describe('рост без дней: семя → росток 1, → куст +2, → урожай +1', () => {
-  it('полный цикл карточки за один заход, урожай уходит на полку «Learned»', () => {
-    const { farm, bus } = setup();
-    const acts: BusEvents['farm:act'][] = [];
-    bus.on('farm:act', (a) => acts.push(a));
+describe('рост без дней: New → Started 1 ответ, → Practiced +2, → Mastered +1', () => {
+  it('полный цикл карточки за один заход, освоенная уходит на полку «Learned»', () => {
+    const { plan, bus } = setup();
+    const acts: BusEvents['work:act'][] = [];
+    bus.on('work:act', (a) => acts.push(a));
     const id = cardsOf('glossary')[0]!.id;
-    farm.plant([id]);
+    plan.addCards([id]);
     const stages: (string | null)[] = [];
-    for (let i = 0; i < ANSWERS_TO_HARVEST; i++) {
-      const q = farm.next(3)!;
-      farm.answer(q, right(q));
-      stages.push(farm.info(id).stage);
+    for (let i = 0; i < ANSWERS_TO_MASTER; i++) {
+      const q = plan.next(3)!;
+      plan.answer(q, right(q));
+      stages.push(plan.info(id).stage);
     }
-    expect(stages).toEqual(['sprout', 'sprout', 'bush', null]);
-    expect(farm.info(id)).toMatchObject({ status: 'grown', harvests: 1 });
-    expect(acts.map((a) => a.kind)).toEqual(['grow', 'water', 'grow', 'harvest']);
-    expect(farm.learned()).toEqual([{ track: 'glossary', ids: [id] }]);
-    expect(farm.next(3)).toBeNull(); // поливать больше нечего
+    expect(stages).toEqual(['started', 'started', 'practiced', null]);
+    expect(plan.info(id)).toMatchObject({ status: 'mastered', wins: 1 });
+    expect(acts.map((a) => a.kind)).toEqual(['advance', 'work', 'advance', 'master']);
+    expect(plan.learned()).toEqual([{ track: 'glossary', ids: [id] }]);
+    expect(plan.next(3)).toBeNull(); // работать больше не над чем
   });
 
-  it('сессия в ~10 минут: посадить трек и пройти раунды до «Onboarded» без дней и пропусков', () => {
-    const { farm } = setup(11);
-    for (const t of TRACKS) farm.plant(cardsOf(t.id).map((c) => c.id));
+  it('сессия в ~10 минут: добавить все треки в план и пройти раунды до «Onboarded» без дней и пропусков', () => {
+    const { plan } = setup(11);
+    for (const t of TRACKS) plan.addCards(cardsOf(t.id).map((c) => c.id));
     let answers = 0;
     for (const mode of GAME_MODES) {
       for (let guard = 0; guard < 400; guard++) {
-        const q = farm.next(mode);
+        const q = plan.next(mode);
         if (!q) break;
-        farm.answer(q, right(q));
+        plan.answer(q, right(q));
         answers++;
       }
     }
-    expect(farm.stats()).toMatchObject({ grownTotal: TOTAL, growing: 0 });
-    expect(farm.stats().path.done).toBe(true);
+    expect(plan.stats()).toMatchObject({ masteredTotal: TOTAL, inProgress: 0 });
+    expect(plan.stats().path.done).toBe(true);
     // ровно 4 верных ответа на карточку: даже 47 карточек влезают в один заход
-    expect(answers).toBe(TOTAL * ANSWERS_TO_HARVEST);
+    expect(answers).toBe(TOTAL * ANSWERS_TO_MASTER);
   });
 
-  it('ошибка снимает каплю, но не стадию', () => {
-    const { farm } = setup();
+  it('ошибка снимает один зачёт стадии, но не саму стадию', () => {
+    const { plan } = setup();
     const id = cardsOf('structure')[0]!.id;
-    farm.plant([id]);
-    let q = farm.next(2, id)!;
-    farm.answer(q, right(q)); // росток
-    q = farm.next(2, id)!;
-    farm.answer(q, right(q)); // 1 из 2
-    expect(farm.info(id)).toMatchObject({ stage: 'sprout', drops: 1 });
-    q = farm.next(2, id)!;
-    farm.answer(q, wrong(q));
-    expect(farm.info(id)).toMatchObject({ stage: 'sprout', drops: 0 });
+    plan.addCards([id]);
+    let q = plan.next(2, id)!;
+    plan.answer(q, right(q)); // Started
+    q = plan.next(2, id)!;
+    plan.answer(q, right(q)); // 1 из 2
+    expect(plan.info(id)).toMatchObject({ stage: 'started', drops: 1 });
+    q = plan.next(2, id)!;
+    plan.answer(q, wrong(q));
+    expect(plan.info(id)).toMatchObject({ stage: 'started', drops: 0 });
   });
 
-  it('прогресс переживает перезагрузку (сад выводится из журнала)', () => {
+  it('прогресс переживает перезагрузку (стадии выводятся из журнала)', () => {
     const a = setup();
     const id = cardsOf('policies')[0]!.id;
-    a.farm.plant([id]);
-    const q = a.farm.next(1, id)!;
-    a.farm.answer(q, right(q));
-    const again: Farm = createFarm({ bus: testBus(), load: () => a.garden(), save: () => undefined, now: () => 9_999_999 });
-    expect(again.info(id).stage).toBe('sprout');
+    a.plan.addCards([id]);
+    const q = a.plan.next(1, id)!;
+    a.plan.answer(q, right(q));
+    const again: Plan = createPlan({ bus: testBus(), load: () => a.saved(), save: () => undefined, now: () => 9_999_999 });
+    expect(again.info(id).stage).toBe('started');
   });
 });
 
@@ -173,10 +173,10 @@ describe('экраны', () => {
   it('мини-игра: сценарий с тремя кнопками, вердикт + пояснение + правило, «Next», раунд из 10 и итог', () => {
     const bus = testBus();
     const f = setup(7);
-    f.farm.plant(cardsOf('policies').map((c) => c.id));
+    f.plan.addCards(cardsOf('policies').map((c) => c.id));
     const root = document.createElement('div');
     document.body.append(root);
-    const game = mountMinigame(root, { bus, next: (m, only) => f.farm.next(m, only), answer: (q, given) => f.farm.answer(q, given) });
+    const game = mountMinigame(root, { bus, next: (m, only) => f.plan.next(m, only), answer: (q, given) => f.plan.answer(q, given) });
     game.start(1);
     expect(root.querySelector('[data-title]')?.textContent).toContain('Pool Rules');
     for (let i = 1; i <= 10; i++) {
@@ -197,20 +197,20 @@ describe('экраны', () => {
     expect(game.isOpen).toBe(false);
   });
 
-  it('Handbook: три вкладки, посадка одной карточки и целого трека', () => {
+  it('Handbook: три вкладки, добавление в план одной карточки и целого трека', () => {
     const f = setup();
     const root = document.createElement('div');
-    const hb = mountHandbook(root, f.farm, f.bus);
+    const hb = mountHandbook(root, f.plan, f.bus);
     hb.open();
     const tabs = [...root.querySelectorAll('[data-tab]')];
     expect(tabs.map((t) => t.getAttribute('data-tab'))).toEqual(['policies', 'structure', 'glossary']);
     expect(tabs.map((t, i) => t.textContent!.startsWith(TRACKS[i]!.title))).toEqual([true, true, true]);
     expect(root.querySelector('[data-phantom]')?.textContent).toContain('invented');
-    root.querySelector<HTMLButtonElement>('[data-plant]')!.click();
-    expect(f.farm.stats().growing).toBe(1);
+    root.querySelector<HTMLButtonElement>('[data-add]')!.click();
+    expect(f.plan.stats().inProgress).toBe(1);
     root.querySelector<HTMLButtonElement>('[data-tab="glossary"]')!.click();
-    root.querySelector<HTMLButtonElement>('[data-plant-track="glossary"]')!.click();
-    expect(f.farm.stats().growing).toBe(1 + cardsOf('glossary').length);
+    root.querySelector<HTMLButtonElement>('[data-add-track="glossary"]')!.click();
+    expect(f.plan.stats().inProgress).toBe(1 + cardsOf('glossary').length);
     expect(root.querySelector('[data-phantom]')).toBeNull();
   });
 
@@ -233,11 +233,11 @@ describe('экраны', () => {
     const e = createEntryPoint(bus);
     const back: BusEvents['world:return'][] = [];
     bus.on('world:return', (s) => back.push(s));
-    bus.emit('world:interact', { location: 'farm', use: 'board', id: 'board', key: 'prop:board', label: 'x', tile: [12, 9], via: 'tap', facing: 'up', hero: [12, 10] });
-    bus.emit('farm:auto', { on: true, bottom: 300 });
+    bus.emit('world:interact', { location: 'plan', use: 'board', id: 'board', key: 'prop:board', label: 'x', tile: [12, 9], via: 'tap', facing: 'up', hero: [12, 10] });
+    bus.emit('work:auto', { on: true, bottom: 300 });
     expect(e.holding).toBe(true);
-    bus.emit('farm:auto', { on: false, bottom: 0 });
-    expect(back).toEqual([{ map: 'farm', x: 12, y: 10, facing: 'up' }]);
+    bus.emit('work:auto', { on: false, bottom: 0 });
+    expect(back).toEqual([{ map: 'plan', x: 12, y: 10, facing: 'up' }]);
     expect(e.holding).toBe(false);
   });
 });

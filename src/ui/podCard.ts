@@ -1,7 +1,7 @@
-// Карточка растения на грядке: карточка (front/back), стадия, что осталось до урожая. «Practice» зовёт мини-игру трека.
+// Карточка рабочее место на рабочее место: карточка (front/back), стадия, что осталось до освоение. «Practice» зовёт мини-игру трека.
 import type { Bus } from '../systems/bus';
 import type { BusEvents } from '../types/bus';
-import type { FarmApi } from '../types/farm';
+import type { PlanApi } from '../types/plan';
 import { el } from './dom';
 import { createPanel, nav, STAGE_NAME } from './panel';
 
@@ -18,18 +18,18 @@ const css = `
 .pc-btns .pq-btn { flex: 1 1 auto; }
 `;
 
-export interface PlantCardOptions {
+export interface PodCardOptions {
   onReview(id: string): void;
 }
 
-export interface PlantCardScreen {
+export interface PodCardScreen {
   open(id: string): void;
   close(): void;
   readonly isOpen: boolean;
 }
 
-export function mountPlantCard(parent: HTMLElement, api: FarmApi, opts: PlantCardOptions, bus?: Bus<BusEvents>): PlantCardScreen {
-  const panel = createPanel({ title: 'Plant', bus });
+export function mountPodCard(parent: HTMLElement, api: PlanApi, opts: PodCardOptions, bus?: Bus<BusEvents>): PodCardScreen {
+  const panel = createPanel({ title: 'Work desk', bus });
   const content = el('div', { class: 'pc' });
   panel.body.append(el('style', {}, css), content);
   parent.append(panel.root);
@@ -43,13 +43,13 @@ export function mountPlantCard(parent: HTMLElement, api: FarmApi, opts: PlantCar
     const card = api.card(cur);
     const i = api.info(cur);
     const track = api.tracks.find((t) => t.id === card?.track);
-    const stage = i.stage ? STAGE_NAME[i.stage] : i.status === 'grown' ? 'learned' : 'not planted';
+    const stage = i.stage ? STAGE_NAME[i.stage] : i.status === 'mastered' ? 'learned' : 'not in plan';
     content.replaceChildren(
       el('div', { class: 'trk' }, track?.title ?? ''),
       el('div', { class: 'big', 'data-front': '' }, card?.front ?? cur),
       el('div', { class: 'back' }, card?.back ?? ''),
       el('div', { class: 'pc-rows' }, row('Stage', stage), row('Correct answers in this stage', String(i.drops))),
-      el('div', { class: 'pc-next', 'data-next': '' }, el('b', {}, '🌱 '), i.next || 'All good'),
+      el('div', { class: 'pc-next', 'data-next': '' }, el('b', {}, '🖥 '), i.next || 'All good'),
       el(
         'div',
         { class: 'pc-btns' },

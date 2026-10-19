@@ -1,29 +1,29 @@
-// Сад знаний: что видят экраны (справочник, полка, коробка, кровать, карточка растения) и мир (грядки, автобег).
-// Чистая модель — src/systems/garden.ts; склейка с хранилищем и шиной — src/systems/farm.ts (FarmApi).
+// План онбординга: что видят экраны (Handbook, полка Learned, план на доске, карточка рабочего места) и мир (рабочие места, автобег).
+// Чистая модель — src/systems/progress.ts; склейка с хранилищем и шиной — src/systems/plan.ts (PlanApi).
 import type { PathInfo } from '../systems/xp';
 import type { Card, Track, TrackId } from './content';
 
-/** Стадия растения. ripe — созрело (миг перед тем, как герой сорвёт). Сорванное уходит на полку «Learned». */
-export type Stage = 'seed' | 'sprout' | 'bush' | 'ripe';
-/** new — не посажено; growing — на грядке; grown — выучено (на полке). */
-export type ItemStatus = 'new' | 'growing' | 'grown';
+/** Стадия карточки на рабочем месте: New (экран выключен), Started, Practiced, Mastered (значок, карточка уходит на полку «Learned»). */
+export type Stage = 'new' | 'started' | 'practiced' | 'mastered';
+/** new — не в плане; active — в работе на террасе; mastered — выучено (на полке). */
+export type ItemStatus = 'new' | 'active' | 'mastered';
 
 export interface ItemInfo {
   id: string;
   status: ItemStatus;
-  /** null — не посажено или уже выучено. */
+  /** null — не в плане или уже выучено. */
   stage: Stage | null;
   /** Верные ответы в текущей стадии. */
   drops: number;
   /** Что осталось до следующей стадии, по-английски. */
   next: string;
-  /** Сколько раз собрано. */
-  harvests: number;
-  /** Номер грядки, если растёт. */
+  /** Сколько раз освоено (0 или 1). */
+  wins: number;
+  /** Номер рабочего места, если в работе. */
   slot: number | null;
 }
 
-export interface FarmStats {
+export interface PlanStats {
   xp: number;
   level: string;
   /** 0..1 внутри текущего уровня. */
@@ -35,51 +35,45 @@ export interface FarmStats {
   thresholds: readonly number[];
   /** Сколько уровней набрано с запуска (непрерывно, 0,4 = 40 % уровня). */
   sessionGain: number;
-  grownTotal: number;
-  growing: number;
+  masteredTotal: number;
+  inProgress: number;
   answersTotal: number;
 }
 
 /** Фасад для экранов. Экраны не знают про хранилище: всё через него. */
-export interface FarmApi {
+export interface PlanApi {
   readonly tracks: readonly Track[];
   readonly cards: readonly Card[];
   card(id: string): Card | undefined;
   cardsOf(track: TrackId): Card[];
   info(id: string): ItemInfo;
-  /** Посадить (новое — семенем на свободную грядку). Уже посаженное пропускается. */
-  plant(ids: readonly string[]): { planted: number; skipped: number };
-  stats(): FarmStats;
+  /** Добавить в план (новое — на свободное рабочее место). Уже добавленное пропускается. */
+  addCards(ids: readonly string[]): { added: number; skipped: number };
+  stats(): PlanStats;
   /** Полка «Learned»: выученные карточки по трекам. */
   learned(): { track: TrackId; ids: string[] }[];
-  /** Подписка на любые изменения сада. */
+  /** Подписка на любые изменения плана. */
   onChange(fn: () => void): () => void;
 }
 
-/** Вид растения (`systems/plantLook.ts`): один из 16 кустов. */
-export interface PlantLook {
-  type: 'plant';
-  variant: number;
-}
-
-/** Растение на грядке для мира. */
-export interface PlantView {
+/** Рабочее место на террасе для мира. */
+export interface PodView {
   slot: number;
   tile: [number, number];
   id: string;
-  /** Короткая подпись над растением. */
+  /** Короткая подпись над рабочим местом. */
   label: string;
   stage: Stage;
   drops: number;
-  look?: PlantLook;
 }
 
 /** Действие героя во время мини-игры (очередь автобега). */
-export interface FarmAct {
-  kind: 'water' | 'grow' | 'harvest' | 'miss';
+export interface PodAct {
+  /** work — верный ответ, advance — стадия выросла, master — освоено (значок), miss — ошибка. */
+  kind: 'work' | 'advance' | 'master' | 'miss';
   id: string;
   label: string;
-  /** Грядка растения (null — растение без грядки, герой стоит). */
+  /** Клетка рабочего места (null — места нет, герой стоит). */
   tile: [number, number] | null;
   /** Сколько опыта за ответ (для «+N»). */
   xp: number;

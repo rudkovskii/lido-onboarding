@@ -1,10 +1,10 @@
-// Общая модалка экранов (Handbook, полка Learned, коробка, кровать, карточка растения) в стиле меню Stardew.
+// Общая модалка экранов (Handbook, полка Learned, экран, кровать, карточка рабочее место) в стиле меню Stardew.
 // Пока открыта: мир не принимает ввод (`world:input`), Esc/«✕»/тап мимо закрывают, стрелки ходят по `[data-nav]`,
 // Enter/Пробел нажимает текущий. Одновременно открыта одна панель.
 import { STAGE_INFO } from './glossary';
 import { bus as globalBus, type Bus } from '../systems/bus';
 import type { BusEvents } from '../types/bus';
-import type { Stage } from '../types/farm';
+import type { Stage } from '../types/plan';
 import { el } from './dom';
 import { THEME_CSS } from './theme';
 
@@ -39,7 +39,7 @@ ${THEME_CSS}
 `;
 
 /** Стадия по-английски. */
-export const STAGE_NAME: Record<Stage, string> = { seed: STAGE_INFO.seed.label, sprout: STAGE_INFO.sprout.label, bush: STAGE_INFO.bush.label, ripe: STAGE_INFO.ripe.label };
+export const STAGE_NAME: Record<Stage, string> = { new: STAGE_INFO.new.label, started: STAGE_INFO.started.label, practiced: STAGE_INFO.practiced.label, mastered: STAGE_INFO.mastered.label };
 
 /** Атрибуты навигационного элемента: `key` помогает вернуть фокус после перерисовки; `group` — для прыжков стрелками между блоками. */
 export function nav(group = '', axis: 'v' | 'h' = 'v', key = ''): Record<string, string> {

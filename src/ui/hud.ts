@@ -59,7 +59,7 @@ export interface Hud {
 export interface HudOptions {
   onSettings(): void;
   bus?: Bus<BusEvents>;
-  /** Плашка прогресса («Learned 3 of 47 · growing 5»); нет — плашки нет. Читается заново на каждый `hud:xp` и при возврате на вкладку. */
+  /** Плашка прогресса («Learned 3 of 47 · in progress 5»); нет — плашки нет. Читается заново на каждый `hud:xp` и при возврате на вкладку. */
   goal?: () => string | null;
   /** Тап по плашке (открыть итог). */
   onGoal?: () => void;
@@ -114,7 +114,7 @@ export function mountHud(parent: HTMLElement, o: HudOptions): Hud {
     if (ev.pct === undefined) nextEl.textContent = '';
     else nextEl.textContent = ev.pct >= 1 ? 'Onboarded 🎉' : `to Onboarded: ${Math.floor(ev.pct * 100)}%`;
     const target = ev.sub === undefined || ev.of === undefined ? 'next level' : ev.sub >= ev.of ? 'Onboarded' : `Level ${ev.sub + 1}`;
-    xp.title = ev.toNext != null ? `To ${target}: ${ev.toNext} pts${ev.growing ? ` · ${ev.growing} growing` : ''}` : '';
+    xp.title = ev.toNext != null ? `To ${target}: ${ev.toNext} pts${ev.inProgress ? ` · ${ev.inProgress} in progress` : ''}` : '';
     bar.setAttribute('aria-valuetext', `${lvl.textContent}. ${nextEl.textContent}`);
     fill.style.width = `${Math.round(r * 100)}%`;
     bar.setAttribute('aria-valuenow', String(Math.round(r * 100)));

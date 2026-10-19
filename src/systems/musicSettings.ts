@@ -13,7 +13,7 @@ export const TRACKS: readonly MusicTrack[] = [
   { id: 'morning', name: 'Morning' },
   { id: 'campus', name: 'On the campus' },
   { id: 'day', name: 'Daytime' },
-  { id: 'meadows', name: 'Meadows' },
+  { id: 'meadows', name: 'Open air' },
   { id: 'evening', name: 'Evening' },
   { id: 'rain', name: 'Rain' },
 ];

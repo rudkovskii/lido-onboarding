@@ -7,7 +7,7 @@ import { GameStorage, parseProfile, profileDbName } from '../src/systems/platfor
 import { mountHints } from '../src/ui/hints';
 import { GUIDE_TEXT, mountGuide, type GuideStage } from '../src/ui/hintsGuide';
 import { mountSettings } from '../src/ui/settings';
-import { LabelGate, PLANT_LABEL_MS } from '../src/world/labelGate';
+import { LabelGate, POD_LABEL_MS } from '../src/world/labelGate';
 import { testBus } from './helpers';
 
 afterEach(() => vi.useRealTimers());
@@ -79,14 +79,14 @@ describe('указатель первых шагов', () => {
     // У самого стола свой пузырь не нужен (там подсказка стола и «A»).
     bus.emit('fx:near', { use: 'desk', id: 'desk', x: 1, y: 1 });
     expect(bubble().hidden).toBe(true);
-    bus.emit('world:interact', { location: 'home', use: 'desk', id: 'desk', key: 'prop:desk', label: '', tile: [8, 3], via: 'tap', facing: 'up' });
+    bus.emit('world:interact', { location: 'office', use: 'desk', id: 'desk', key: 'prop:desk', label: '', tile: [8, 3], via: 'tap', facing: 'up' });
     expect(flags).toEqual(['desk']);
     expect(g.stage).toBe('board');
     expect(goals).toEqual(['desk', 'board']);
     bus.emit('fx:near', null);
     bus.emit('fx:guide', at);
     expect(bubble().textContent).toBe(GUIDE_TEXT.board);
-    bus.emit('farm:auto', { on: true, bottom: 200 });
+    bus.emit('work:auto', { on: true, bottom: 200 });
     expect(flags).toEqual(['desk', 'board']);
     expect(g.stage).toBeNull();
     expect(goals.at(-1)).toBeNull();
@@ -113,7 +113,7 @@ describe('мелочи', () => {
     const root = document.createElement('div');
     const seen: string[] = [];
     mountHints(root, { seen: (u) => seen.includes(u), mark: (u) => seen.push(u) }, bus);
-    bus.emit('world:interact', { location: 'home', use: 'desk', id: 'desk', key: 'prop:desk', label: '', tile: [8, 3], via: 'tap', facing: 'up' });
+    bus.emit('world:interact', { location: 'office', use: 'desk', id: 'desk', key: 'prop:desk', label: '', tile: [8, 3], via: 'tap', facing: 'up' });
     bus.emit('fx:near', { use: 'desk', id: 'desk', x: 1, y: 1 });
     expect(root.querySelector<HTMLElement>('[data-hint]')!.hidden).toBe(true);
     expect(seen).toEqual(['desk']);
@@ -122,8 +122,8 @@ describe('мелочи', () => {
   it('подпись растения у героя гаснет через пару секунд; задание мини-игры держится', () => {
     const g = new LabelGate();
     expect(g.show('p:kot', 0)).toBe(true);
-    expect(g.show('p:kot', PLANT_LABEL_MS + 1)).toBe(false);
-    expect(g.show('p:pies', PLANT_LABEL_MS + 2)).toBe(true);
+    expect(g.show('p:kot', POD_LABEL_MS + 1)).toBe(false);
+    expect(g.show('p:pies', POD_LABEL_MS + 2)).toBe(true);
     expect(g.show(null, 10_000)).toBe(false);
     expect(g.show('p:pies', 10_001)).toBe(true);
     expect(g.show('q:kot', 0, true)).toBe(true);

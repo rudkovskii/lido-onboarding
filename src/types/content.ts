@@ -9,7 +9,7 @@ export interface Track {
   desc: string;
 }
 
-/** Карточка = «растение»: front — вопрос/термин, back — ответ/смысл. */
+/** Карточка = «рабочее место»: front — вопрос/термин, back — ответ/смысл. */
 export interface Card {
   id: string;
   track: TrackId;
@@ -20,7 +20,7 @@ export interface Card {
 
 export type Verdict = 'ok' | 'violation' | 'ask';
 
-/** Ситуация для игры Pool Rules; `card` — карточка-правило, которую поливает ответ. */
+/** Ситуация для игры Pool Rules; `card` — карточка-правило, которую работа ответ. */
 export interface Scenario {
   id: string;
   situation: string;
@@ -29,7 +29,7 @@ export interface Scenario {
   card: string;
 }
 
-/** Вопрос для игры Who's Who; `card` — карточка, которую поливает ответ. */
+/** Вопрос для игры Who's Who; `card` — карточка, которую работа ответ. */
 export interface StructureQuestion {
   id: string;
   q: string;

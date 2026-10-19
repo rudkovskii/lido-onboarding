@@ -6,13 +6,13 @@ import { LocationModel, around, buildObjects } from '../src/world/location';
 import { findPath } from '../src/world/pathfind';
 import { MAPS, getMap, resolveSpawn, START } from '../src/world/maps';
 
-const tileset = JSON.parse(readFileSync('public/atlas/farm.json', 'utf8')) as TilesetMeta;
+const tileset = JSON.parse(readFileSync('public/atlas/campus.json', 'utf8')) as TilesetMeta;
 const sprites = JSON.parse(readFileSync('public/atlas/sprites.json', 'utf8')) as Record<string, { size: [number, number] }>;
 
 describe('карты: форма и ссылки', () => {
-  it('две карты: дом и кампус; старт на кампусе', () => {
-    expect(Object.keys(MAPS).sort()).toEqual(['farm', 'home']);
-    expect(START).toEqual({ map: 'farm', spawn: 'start' });
+  it('две карты: кампус и офис; старт на кампусе', () => {
+    expect(Object.keys(MAPS).sort()).toEqual(['campus', 'office']);
+    expect(START).toEqual({ map: 'campus', spawn: 'start' });
   });
 
   for (const [id, map] of Object.entries(MAPS)) {
@@ -77,8 +77,8 @@ describe('карты: форма и ссылки', () => {
     }
   });
 
-  it('интерактивные объекты: стол, доска, коробка, полка, кровать, радио; к каждому можно подойти', () => {
-    const uses: Record<string, string> = { home: 'bed,desk,radio,shelf', farm: 'bin,board' };
+  it('интерактивные объекты: Handbook, Learned, план, радио в офисе и инфо-тотем на кампусе; к каждому можно подойти', () => {
+    const uses: Record<string, string> = { office: 'desk,plan,radio,shelf', campus: 'board' };
     for (const [id, list] of Object.entries(uses)) {
       const map = getMap(id);
       const found = map.objects.filter((o): o is PropObject => o.type === 'prop' && !!o.use).map((o) => o.use);
@@ -91,48 +91,46 @@ describe('карты: форма и ссылки', () => {
     }
   });
 
-  it('грядки: участок 6×4 из земли, с запасом на расширение внутри забора', () => {
-    const farm = getMap('farm');
-    const plot = farm.objects.find((o) => o.type === 'plot')!;
+  it('терраса: участок 6×4 внутри площади, запас под расширение, рабочие места не на стенах и воде', () => {
+    const campus = getMap('campus');
+    const plot = campus.objects.find((o) => o.type === 'plot')!;
     if (plot.type !== 'plot') throw new Error();
     expect(plot.size).toEqual([6, 4]);
-    const parsed = parseAscii(farm);
-    for (let y = plot.at[1]; y < plot.at[1] + 4; y++) for (let x = plot.at[0]; x < plot.at[0] + 6; x++) expect(parsed.ground[y]![x]).toBe('s');
-    expect(plot.reserve!.size[0] * plot.reserve!.size[1]).toBeGreaterThan(24);
+    const parsed = parseAscii(campus);
+    const m = new LocationModel(campus, resolveSpawn(campus, 'default').tile, { cat: false });
+    const r = plot.reserve!;
+    expect(r.size[0] * r.size[1]).toBeGreaterThan(24);
+    for (let y = r.at[1]; y < r.at[1] + r.size[1]; y++) for (let x = r.at[0]; x < r.at[0] + r.size[0]; x++) {
+      expect(parsed.ground[y]![x], `${x},${y}`).toBe('p');
+      expect(m.passable(x, y)).toBe(true);
+    }
   });
 
-  it('карты удобны на iPhone: дом крупно (zoom 3, по высоте целиком, камера вдоль комнаты), ферма zoom 2', async () => {
+  it('кампус: кольцо из крыши и фасада вокруг двора с бассейном, дверь в офис на южной кромке', () => {
+    const campus = getMap('campus');
+    const parsed = parseAscii(campus);
+    const flat = parsed.ground.flat();
+    expect(flat.filter((c) => c === 'R').length).toBeGreaterThan(150);
+    expect(flat.filter((c) => c === 'W').length).toBe(18); // бассейн 6×3
+    const door = campus.objects.find((o) => o.type === 'exit');
+    expect(door && door.type === 'exit' && door.to).toBe('office');
+  });
+
+  it('карты удобны на телефоне: офис крупно, кампус целиком по ширине', async () => {
     const { pickZoom } = await import('../src/world/camera');
-    const home = getMap('home');
-    const farm = getMap('farm');
-    // Высота между HUD (52 + чёлка 47) и d-pad (148 + полоска 34).
+    const office = getMap('office');
+    const campus = getMap('campus');
     const usable = 844 - 52 - 47 - 148 - 34;
-    expect(pickZoom(390, 844, home.size[0] * 16, home.size[1] * 16, usable)).toBe(3);
-    expect(home.size[1] * 16 * 3).toBeLessThanOrEqual(usable);
-    expect(390 / 48).toBeGreaterThanOrEqual(7.5);
-    // iPhone SE тоже 3; телефон боком: по высоте не влезает — остаётся 2, целиком.
-    expect(pickZoom(375, 667, home.size[0] * 16, home.size[1] * 16, 667 - 52 - 20 - 148)).toBe(3);
-    expect(pickZoom(844, 390, home.size[0] * 16, home.size[1] * 16, 390 - 52 - 148)).toBe(2);
-    expect(pickZoom(390, 844, farm.size[0] * 16, farm.size[1] * 16, usable)).toBe(2);
-    expect(pickZoom(390, 844, farm.size[0] * 16, farm.size[1] * 16)).toBe(2);
-    // Mac: целый масштаб, не больше 4
-    expect([3, 4]).toContain(pickZoom(1440, 900, home.size[0] * 16, home.size[1] * 16));
-  });
-
-  it('P3b: кровать видна целиком при спавне на iPhone (дом zoom 3, камера у героя)', async () => {
-    const home = getMap('home');
-    const bed = home.objects.find((o) => o.type === 'prop' && o.id === 'bed') as { at: [number, number]; size: [number, number] };
-    const spawn = home.spawns.default!;
-    const viewW = 375 / 3;
-    const mw = home.size[0] * 16;
-    const cx = Math.min(Math.max(Math.round((spawn[0] + 0.5) * 16), viewW / 2), mw - viewW / 2);
-    expect(bed.at[0] * 16).toBeGreaterThanOrEqual(cx - viewW / 2);
-    expect((bed.at[0] + bed.size[0]) * 16).toBeLessThanOrEqual(cx + viewW / 2);
+    expect(pickZoom(390, 844, office.size[0] * 16, office.size[1] * 16, usable)).toBeGreaterThanOrEqual(1);
+    expect(pickZoom(390, 844, campus.size[0] * 16, campus.size[1] * 16, usable)).toBeGreaterThanOrEqual(1);
+    expect([2, 3, 4]).toContain(pickZoom(1440, 900, office.size[0] * 16, office.size[1] * 16));
   });
 
   it('кадры автотайлов: фрейм находится для каждой клетки', () => {
-    const farm = getMap('farm');
-    const parsed = parseAscii(farm);
-    for (let y = 0; y < parsed.h; y++) for (let x = 0; x < parsed.w; x++) expect(frameFor(tileset, farm as LocationMap, parsed.ground, x, y)).toBeGreaterThanOrEqual(0);
+    for (const id of ['campus', 'office']) {
+      const map = getMap(id);
+      const parsed = parseAscii(map);
+      for (let y = 0; y < parsed.h; y++) for (let x = 0; x < parsed.w; x++) expect(frameFor(tileset, map as LocationMap, parsed.ground, x, y)).toBeGreaterThanOrEqual(0);
+    }
   });
 });

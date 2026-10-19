@@ -1,5 +1,5 @@
-// Короткие звуки-эффекты без голоса: синтез WebAudio, тихо, в духе Stardew (мягкие тоны и шум, без семплов).
-// Новый уровень (`hud:xp {up}`), шаги/полив/урожай (`fx:sfx` от сцены), «верно/неверно» (`farm:act`), окна (`world:input`).
+// Короткие звуки-эффекты без голоса: синтез WebAudio, тихо (мягкие UI-клики, тоны и шум, без семплов).
+// Новый уровень (`hud:xp {up}`), шаги/работа/освоение (`fx:sfx` от сцены), «верно/неверно» (`work:act`), окна (`world:input`).
 // Тот же выключатель звука, что у озвучки; на `?mute=1` не подключается вовсе и AudioContext не трогает.
 import type { Bus } from '../bus';
 import type { BusEvents, SfxName } from '../../types/bus';
@@ -61,24 +61,24 @@ function noise(ctx: AudioContext, at: number, len: number, gain: number, type: B
 
 /** Рецепты звуков действий: `k` = базовая громкость × регулятор. Длина в с — для троттлинга и тестов. */
 export const SFX_RECIPES: Record<SfxName, { len: number; play(ctx: AudioContext, at: number, k: number): void }> = {
-  step_grass: { len: 0.07, play: (c, t, k) => noise(c, t, 0.07, k * 0.55, 'bandpass', 1500 + Math.random() * 500) },
-  step_wood: {
+  step_stone: { len: 0.07, play: (c, t, k) => noise(c, t, 0.07, k * 0.55, 'bandpass', 1500 + Math.random() * 500) },
+  step_floor: {
     len: 0.08,
     play: (c, t, k) => {
       tone(c, 'triangle', 150 + Math.random() * 25, t, 0.07, k * 1.1, 95);
       noise(c, t, 0.03, k * 0.35, 'highpass', 2400);
     },
   },
-  water: {
-    len: 0.32,
+  work: {
+    len: 0.12,
     play: (c, t, k) => {
-      noise(c, t, 0.3, k * 0.5, 'bandpass', 2200, 900);
-      tone(c, 'sine', 700, t + 0.1, 0.07, k * 0.35, 1100);
-      tone(c, 'sine', 900, t + 0.2, 0.07, k * 0.3, 1400);
+      noise(c, t, 0.025, k * 0.5, 'highpass', 3200);
+      tone(c, 'square', 1500, t + 0.03, 0.03, k * 0.18, 1100);
+      noise(c, t + 0.07, 0.02, k * 0.4, 'highpass', 3600);
     },
   },
-  pick: { len: 0.12, play: (c, t, k) => tone(c, 'sine', 880, t, 0.1, k * 0.9, 1320) },
-  plim: {
+  ping: { len: 0.12, play: (c, t, k) => tone(c, 'sine', 880, t, 0.1, k * 0.9, 1320) },
+  chime: {
     len: 0.4,
     play: (c, t, k) => {
       tone(c, 'sine', 1318.5, t, 0.32, k * 0.9);
@@ -93,7 +93,7 @@ export const SFX_RECIPES: Record<SfxName, { len: number; play(ctx: AudioContext,
     },
   },
   wrong: { len: 0.2, play: (c, t, k) => tone(c, 'sine', 196, t, 0.18, k * 0.9, 150) },
-  grow: {
+  advance: {
     len: 0.3,
     play: (c, t, k) => {
       tone(c, 'triangle', 784, t, 0.09, k * 0.7);
@@ -106,7 +106,7 @@ export const SFX_RECIPES: Record<SfxName, { len: number; play(ctx: AudioContext,
 };
 
 /** Не чаще: шаги бегущего героя и повторы одного звука не должны трещать. */
-const MIN_GAP: Partial<Record<SfxName, number>> = { step_grass: 0.17, step_wood: 0.17, correct: 0.08, wrong: 0.08, water: 0.12, open: 0.12, close: 0.12 };
+const MIN_GAP: Partial<Record<SfxName, number>> = { step_stone: 0.17, step_floor: 0.17, correct: 0.08, wrong: 0.08, work: 0.07, open: 0.12, close: 0.12 };
 
 /** Играет звук действия. Возвращает false, если пропущен (слишком часто). */
 export function playSfx(ctx: AudioContext, name: SfxName, volume = 1, last?: Map<SfxName, number>): boolean {
@@ -151,8 +151,8 @@ export function connectSfx(bus: Bus<BusEvents>, enabled: () => boolean, ctxOf: (
     }),
     bus.on('fx:sfx', ({ name }) => sfx(name)),
     // Ответ: верно — мягкий «тик», неверно — приглушённый «бум».
-    bus.on('farm:act', ({ kind }) => sfx(kind === 'miss' ? 'wrong' : 'correct')),
-    // Окно (словарь, коробка, мини-игра, настройки): открылось — закрылось.
+    bus.on('work:act', ({ kind }) => sfx(kind === 'miss' ? 'wrong' : 'correct')),
+    // Окно (словарь, экран, мини-игра, настройки): открылось — закрылось.
     bus.on('world:input', ({ enabled: on }) => sfx(on ? 'close' : 'open')),
   ];
   return () => {

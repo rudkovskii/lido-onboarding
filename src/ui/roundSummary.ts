@@ -9,8 +9,8 @@ export const ROUND_SIZE = 10;
 /** Что нужно раунду от результата ответа (подмножество `AnswerResult`). */
 export interface RoundAnswer {
   ok: boolean;
-  /** Действие героя: полив, рост, урожай, промах; `xp` — опыт за ответ. */
-  act?: { kind: 'water' | 'grow' | 'harvest' | 'miss'; xp: number };
+  /** Действие героя: работа, рост, освоение, промах; `xp` — опыт за ответ. */
+  act?: { kind: 'work' | 'advance' | 'master' | 'miss'; xp: number };
   /** Путь к Onboarded до и после ответа (позиция в уровнях) и название после ответа. */
   path?: { from: number; to: number; sub: number; label: string };
 }
@@ -18,12 +18,12 @@ export interface RoundAnswer {
 export interface RoundStats {
   total: number;
   correct: number;
-  /** Полито: каждый верный ответ поливает (в том числе тот, что вырастил или собрал). */
-  watered: number;
-  /** Сменили стадию (росток, кустик). */
+  /** Отработано: каждый верный ответ = один заход героя к рабочему месту. */
+  worked: number;
+  /** Сменили стадию (Started, Practiced). */
   grew: number;
-  /** Собран урожай. */
-  harvested: number;
+  /** Освоено карточек. */
+  mastered: number;
   xp: number;
   bestStreak: number;
   /** Путь к Onboarded: позиция до первого и после последнего ответа раунда, название и номер уровня сейчас. */
@@ -54,9 +54,9 @@ export class Round {
       this.streak++;
       s.bestStreak = Math.max(s.bestStreak, this.streak);
       const k = r.act?.kind;
-      if (k !== 'miss') s.watered++;
-      if (k === 'grow') s.grew++;
-      if (k === 'harvest') s.harvested++;
+      if (k !== 'miss') s.worked++;
+      if (k === 'advance') s.grew++;
+      if (k === 'master') s.mastered++;
     } else this.streak = 0;
   }
   reset(): void {
@@ -66,7 +66,7 @@ export class Round {
 }
 
 function emptyStats(): RoundStats {
-  return { total: 0, correct: 0, watered: 0, grew: 0, harvested: 0, xp: 0, bestStreak: 0 };
+  return { total: 0, correct: 0, worked: 0, grew: 0, mastered: 0, xp: 0, bestStreak: 0 };
 }
 
 export const roundCss = `
@@ -97,9 +97,9 @@ export function renderRoundSummary(n: number, s: Readonly<RoundStats>): HTMLElem
       'dl',
       {},
       ...row('Correct', `${s.correct} of ${s.total}`),
-      ...row('Watered', String(s.watered)),
-      ...row('Grew', String(s.grew)),
-      ...row('Harvested', String(s.harvested)),
+      ...row('Worked', String(s.worked)),
+      ...row('Moved up', String(s.grew)),
+      ...row('Mastered', String(s.mastered)),
       ...row('XP', `+${s.xp}`, 'xp'),
       ...row('Best streak', String(s.bestStreak)),
     ),

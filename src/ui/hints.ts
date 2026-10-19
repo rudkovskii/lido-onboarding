@@ -1,4 +1,4 @@
-// Пузыри-подсказки при первом подходе к столу, доске и коробке (решение 12 в ФЕРМА.md): 1–2 строки над объектом,
+// Пузыри-подсказки при первом подходе к столу, доске и экран (решение 12 в ФЕРМА.md): 1–2 строки над объектом,
 // каждая показывается один раз; флаг «показано» лежит в сохранении (`Save.hints`). Без сюжета и онбординга.
 import { bus as globalBus, type Bus } from '../systems/bus';
 import type { BusEvents } from '../types/bus';
@@ -7,9 +7,9 @@ import { THEME_CSS } from './theme';
 
 /** Название и подсказка по `use` объекта. */
 export const HINTS: Readonly<Record<string, { title: string; text: string }>> = {
-  desk: { title: 'Handbook', text: 'Plant cards' },
+  desk: { title: 'Handbook', text: 'Add cards to your plan' },
   board: { title: 'Mini-games', text: 'Pick a game' },
-  bin: { title: 'Harvest box', text: 'Harvest goes here' },
+  plan: { title: 'My onboarding plan', text: 'Your progress' },
   shelf: { title: 'Learned', text: 'Your finished cards' },
 };
 

@@ -3,7 +3,7 @@
 import { bus as globalBus, type Bus } from '../systems/bus';
 import { DONE_LEVEL, SUBLEVELS, SUB_COUNT, type Sublevel } from '../systems/xp';
 import type { BusEvents } from '../types/bus';
-import type { FarmApi } from '../types/farm';
+import type { PlanApi } from '../types/plan';
 import { el } from './dom';
 import { createPanel, nav } from './panel';
 import { THEME_CSS } from './theme';
@@ -132,7 +132,7 @@ export interface PathScreen {
 const plural = (n: number, one: string, many: string): string => (n === 1 ? one : many);
 
 /** Экран «Path to Onboarded»: где ты, сколько выучено из скольких и лестница из 8 уровней. */
-export function mountPath(parent: HTMLElement, api: FarmApi, bus?: Bus<BusEvents>): PathScreen {
+export function mountPath(parent: HTMLElement, api: PlanApi, bus?: Bus<BusEvents>): PathScreen {
   const panel = createPanel({ title: 'Path to Onboarded', bus });
   const content = el('div', { class: 'path' });
   const closeBtn = el('button', { type: 'button', class: 'pq-btn', 'data-done': '', ...nav('done', 'v', 'done'), onclick: () => panel.close() }, 'Close');
@@ -151,12 +151,12 @@ export function mountPath(parent: HTMLElement, api: FarmApi, bus?: Bus<BusEvents
       el('div', { class: 'path-hint', 'data-path-pct': '' }, p.done ? 'Onboarded: every card is learned' : `To Onboarded: ${pct}% · ${Math.floor(p.points)} of ${s.total} points`),
       p.toNext !== null ? el('div', { class: 'path-hint', 'data-path-next': '' }, `To ${p.nextTo}: ${p.toNext} more ${plural(p.toNext, 'point', 'points')}`) : null,
     );
-    const growing = p.points - p.grown;
+    const inProgress = p.points - p.mastered;
     const rows = el(
       'div',
       { class: 'path-rows' },
-      el('div', { class: 'path-row' }, el('span', {}, 'Cards learned'), el('b', { 'data-path-cards': '' }, `${s.grownTotal} of ${s.total}`)),
-      el('div', { class: 'path-row' }, el('span', {}, 'Growing now'), el('b', {}, growing > 0.05 ? `${s.growing} (about ${Math.floor(growing)} pts)` : String(s.growing))),
+      el('div', { class: 'path-row' }, el('span', {}, 'Cards learned'), el('b', { 'data-path-cards': '' }, `${s.masteredTotal} of ${s.total}`)),
+      el('div', { class: 'path-row' }, el('span', {}, 'In progress'), el('b', {}, inProgress > 0.05 ? `${s.inProgress} (about ${Math.floor(inProgress)} pts)` : String(s.inProgress))),
     );
     const steps: HTMLElement[] = [];
     const add = (l: Sublevel, from: number | null): void => {
@@ -180,7 +180,7 @@ export function mountPath(parent: HTMLElement, api: FarmApi, bus?: Bus<BusEvents
       hero,
       rows,
       ladder,
-      el('div', { class: 'path-note' }, `Points: a learned card is 1, a growing one gives a part: seed 0.1, sprout 0.3, bush 0.6. Everything learned = ${s.total} points.`),
+      el('div', { class: 'path-note' }, `Points: a learned card is 1, a card in progress gives a part: New 0.1, Started 0.3, Practiced 0.6. Everything learned = ${s.total} points.`),
     );
   }
 

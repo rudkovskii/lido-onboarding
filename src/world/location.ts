@@ -28,9 +28,9 @@ const OPPOSITE: Record<Dir, Dir> = { up: 'down', down: 'up', left: 'right', righ
 type Rect = readonly [number, number, number, number];
 
 export interface WorldObject {
-  /** `prop:desk`, `exit:5,5`, `plot:garden`, `spot:cat_sleep`. */
+  /** `prop:desk`, `exit:5,5`, `plot:plan`, `spot:cat_sleep`. */
   key: string;
-  kind: 'prop' | 'exit' | 'plot' | 'spot' | 'plant';
+  kind: 'prop' | 'exit' | 'plot' | 'spot' | 'pod';
   id: string;
   at: Xy;
   size: Xy;
@@ -39,13 +39,13 @@ export interface WorldObject {
   src: LocationMap['objects'][number];
   use?: string;
   label?: string;
-  /** Клетки, по которым с объектом взаимодействуют, если он проходим (растение на грядке). Иначе — `rects`. */
+  /** Клетки, по которым с объектом взаимодействуют, если он проходим (рабочее место на рабочее место). Иначе — `rects`. */
   cells?: Rect[];
 }
 
-/** Растение на грядке для модели: проходимо, но с ним можно взаимодействовать (A, тап). */
-export interface PlantSpot {
-  /** id растения (слово или фраза). */
+/** Растение на рабочее место для модели: проходимо, но с ним можно взаимодействовать (A, тап). */
+export interface PodSpot {
+  /** id рабочее место (слово или фраза). */
   id: string;
   tile: Xy;
   label: string;
@@ -204,7 +204,7 @@ export class LocationModel {
   speed = 1;
   /** Мини-игра (автобег): кот остаётся рядом, как раньше, и своими делами не занят. */
   leash = false;
-  private plants: WorldObject[] = [];
+  private pods: WorldObject[] = [];
   private heldDir: Dir | null = null;
   /** Короткие нажатия, пришедшие во время шага: до QUEUE_MAX, по порядку. */
   private queuedDirs: Dir[] = [];
@@ -282,29 +282,29 @@ export class LocationModel {
     return this.objects.find((o) => o.key === key) ?? this.dyn().find((o) => o.key === key);
   }
 
-  /** Живые объекты: растения на грядках. */
+  /** Живые объекты: рабочее место на рабочее место. */
   private dyn(): WorldObject[] {
-    return this.plants;
+    return this.pods;
   }
 
-  /** Растения на грядках (ключ `plant:<id>`): проходимы, A и тап по ним шлют `interact` с `use: 'plant'`. */
-  setPlants(list: readonly PlantSpot[]): void {
-    this.plants = list.map((p): WorldObject => ({
-      key: `plant:${p.id}`,
-      kind: 'plant',
+  /** Растения на рабочее место (ключ `pod:<id>`): проходимы, A и тап по ним шлют `interact` с `use: 'pod'`. */
+  setPods(list: readonly PodSpot[]): void {
+    this.pods = list.map((p): WorldObject => ({
+      key: `pod:${p.id}`,
+      kind: 'pod',
       id: p.id,
       at: [p.tile[0], p.tile[1]],
       size: [1, 1],
       rects: [],
       cells: [[p.tile[0], p.tile[1], 1, 1]],
       src: { type: 'spot', id: p.id, at: [p.tile[0], p.tile[1]] },
-      use: 'plant',
+      use: 'pod',
       label: p.label,
     }));
   }
 
   /**
-   * Автобег: дойти до клетки рядом с `target` (лучше сбоку: высокий спрайт героя не закрывает растение) и встать. Ввод игрока при этом
+   * Автобег: дойти до клетки рядом с `target` (лучше сбоку: высокий спрайт героя не закрывает рабочее место) и встать. Ввод игрока при этом
    * выключен (мини-игра). Возвращает false, если уже стоит рядом (или дойти некуда).
    */
   walkNear(target: Xy, extra: readonly Rect[] = []): boolean {
@@ -321,7 +321,7 @@ export class LocationModel {
       this.path = [];
       return false;
     }
-    // Растение: ближайшая клетка сбоку, если туда можно дойти; иначе любая соседняя. Объект (коробка): ближайшая рядом.
+    // Растение: ближайшая клетка сбоку, если туда можно дойти; иначе любая соседняя. Объект (экран): ближайшая рядом.
     const side = extra.length ? [] : goals.filter((g) => g[1] === target[1]);
     if (side.length) {
       const r = findPathToAny(this.walkGrid(), here, side, target);
@@ -358,7 +358,7 @@ export class LocationModel {
 
   /**
    * Тап в точку мира (в клетках, дробные): сначала видимая часть интерактивного спрайта (верх стола, доски, полки —
-   * над их клетками коллизии), передний (ниже на экране) побеждает; потом клетки объектов и растений; потом дверь.
+   * над их клетками коллизии), передний (ниже на экране) побеждает; потом клетки объектов и рабочее место; потом дверь.
    */
   targetAtPoint(x: number, y: number, o: { doorZone?: boolean } = {}): string | null {
     const tile: Xy = [Math.floor(x), Math.floor(y)];
@@ -378,14 +378,14 @@ export class LocationModel {
       if (x < cx - sw / 2 || x >= cx + sw / 2 || y < bottom - sh || y >= bottom) continue;
       if (!best || bottom > best.at[1] + best.size[1]) best = o;
     }
-    // Растение в клетке важнее края чужого спрайта: грядки плотные.
-    const plant = this.dyn().find((o) => hitRects(o).some((r) => inRect(r, tile)));
-    if (plant) return plant.key;
+    // Растение в клетке важнее края чужого спрайта: рабочее место плотные.
+    const pod = this.dyn().find((o) => hitRects(o).some((r) => inRect(r, tile)));
+    if (pod) return pod.key;
     return best?.key ?? this.targetAt(tile) ?? this.doorInProp(x, y, !!o.doorZone)?.key ?? null;
   }
 
   /**
-   * Тап по зданию с дверью (дом на ферме: стена, крыша) = дверь. При указателе первых шагов (`doorZone`) зона тянется
+   * Тап по зданию с дверью (дом на кампус: стена, крыша) = дверь. При указателе первых шагов (`doorZone`) зона тянется
    * на полторы клетки над крышей: стрелка висит над дверью и при мелком зуме заходит выше спрайта (B2, тест 4).
    */
   private doorInProp(x: number, y: number, zone: boolean): WorldObject | undefined {
@@ -660,7 +660,7 @@ export class LocationModel {
 
   /**
    * Тап по объекту: дойти до клетки подхода со стороны лица (занята или недостижима — до ближайшей другой), повернуться и
-   * сделать действие. Тап по двери: войти в неё (снаружи — в дом, изнутри — на ферму).
+   * сделать действие. Тап по двери: войти в неё (снаружи — в дом, изнутри — на кампус).
    */
   private interactTarget(key: string): void {
     const o = this.object(key);
@@ -720,7 +720,7 @@ export class LocationModel {
     if (eq(c, f)) return true;
     // Прямо над героем кота не видно: высокий спрайт героя его закрывает.
     if (c[0] === p.tile[0] && c[1] === p.tile[1] - 1) return true;
-    // Подходы к интерактивным объектам: кот не мешает дойти до стола, доски, коробки
+    // Подходы к интерактивным объектам: кот не мешает дойти до стола, доски, экран
     const spot = this.spot('cat_sleep');
     if (spot && eq(c, spot)) return false;
     return this.objects.some((o) => o.use && around(o.rects).some((a) => eq(a, c)));
@@ -916,7 +916,7 @@ export class LocationModel {
     c.step = { from: c.tile, to: nxt, t: 0, ms: CAT_STEP_MS };
   }
 
-  /** Места для дел кота: забор, коробка и радио, ковёр, грядки и цветы (нюхать). */
+  /** Места для дел кота: забор, экран и радио, ковёр, рабочее место и цветы (нюхать). */
   private catPlaces(): LifePlace[] {
     const out: LifePlace[] = [];
     const g = this.catGrid();
@@ -941,7 +941,7 @@ export class LocationModel {
         for (const s of nbrs(o.at)) out.push({ kind: 'sniff', stand: s, look: o.at });
       }
     }
-    for (const p of this.plants) for (const s of nbrs(p.at)) out.push({ kind: 'sniff', stand: s, look: p.at });
+    for (const p of this.pods) for (const s of nbrs(p.at)) out.push({ kind: 'sniff', stand: s, look: p.at });
     return out;
   }
 

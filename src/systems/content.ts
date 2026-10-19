@@ -22,7 +22,7 @@ export const GAME_MODES: readonly GameMode[] = [1, 2, 3];
 
 export const isCard = (id: string): boolean => CARD_BY_ID.has(id);
 
-/** Короткая подпись карточки для надписи над растением. */
+/** Короткая подпись карточки для надписи над рабочее место. */
 export function labelOf(id: string, max = 26): string {
   const f = CARD_BY_ID.get(id)?.front ?? id;
   return f.length <= max ? f : `${f.slice(0, max - 1).trimEnd()}…`;

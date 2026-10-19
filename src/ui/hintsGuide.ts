@@ -1,30 +1,30 @@
 // Первые шаги новичка без экранов-инструкций (решение 12 в ФЕРМА.md допускает мелкие пузыри): пузырь над героем и
 // стрелка к цели. Этап 1 «Иди к столу: там словарь» (стрелка к двери дома, в доме — к столу) горит, пока игрок не откроет
-// словарь; этап 2 «Теперь к доске на огороде» — до первой мини-игры. Флаги этапов лежат в сохранении (`Save.hints`:
+// словарь; этап 2 «Теперь к доске на план» — до первой мини-игры. Флаги этапов лежат в сохранении (`Save.hints`:
 // `guide:desk`, `guide:board`), решает склейка (main.ts). Мир сообщает экранные точки героя и цели событием `fx:guide`.
 import { bus as globalBus, type Bus } from '../systems/bus';
 import type { BusEvents } from '../types/bus';
 import { el } from './dom';
 import { THEME_CSS } from './theme';
 
-export type GuideStage = 'desk' | 'board' | 'replant';
+export type GuideStage = 'desk' | 'board' | 'emptyplan';
 
 export const GUIDE_TEXT: Readonly<Record<GuideStage, string>> = {
-  desk: 'Go to the desk: the Handbook is there',
-  board: 'Now to the board in the garden',
-  // F5b: огород опустел после урожая — игра не молчит, а ведёт к столу (посадить ещё); гаснет, когда на грядках снова растёт.
-  replant: 'Garden is empty · Plant more cards at the desk',
+  desk: 'Go to reception: the Handbook is there',
+  board: 'Now to the info totem outside',
+  // План опустел после освоения всего добавленного: игра ведёт к ресепшену (добавить ещё); гаснет, когда в работе снова что-то есть.
+  emptyplan: 'Plan is empty · Add more cards at the Handbook',
 };
 
-/** Объект, к которому ведёт этап: пустой огород ведёт к столу, как и первый шаг. */
-export const GUIDE_GOAL: Readonly<Record<GuideStage, 'desk' | 'board'>> = { desk: 'desk', board: 'board', replant: 'desk' };
+/** Объект, к которому ведёт этап: пустой план ведёт к столу, как и первый шаг. */
+export const GUIDE_GOAL: Readonly<Record<GuideStage, 'desk' | 'board'>> = { desk: 'desk', board: 'board', emptyplan: 'desk' };
 
 const css = `
 ${THEME_CSS}
 .pq-guide { position: fixed; z-index: 33; pointer-events: none; transform: translate(-50%, -100%); max-width: min(240px, calc(100vw - 24px)); padding: 5px 10px;
   background: var(--pq-cream); color: var(--pq-ink); border: 2px solid var(--pq-ink); border-radius: 8px; box-shadow: 0 2px 0 var(--pq-ink); text-align: center;
   font: 700 14px/1.2 -apple-system, BlinkMacSystemFont, sans-serif; white-space: nowrap; }
-.pq-guide[data-stage="replant"] { white-space: normal; width: max-content; }
+.pq-guide[data-stage="emptyplan"] { white-space: normal; width: max-content; }
 .pq-guide::after { content: ''; position: absolute; left: 50%; bottom: -7px; margin-left: -6px; border: 6px solid transparent; border-bottom: 0; border-top-color: var(--pq-ink); }
 .pq-guide-arrow { position: fixed; z-index: 33; pointer-events: none; width: 0; height: 0; margin: -16px 0 0 -15px; border: 15px solid transparent; border-bottom: 0;
   border-top: 22px solid var(--pq-accent); filter: drop-shadow(0 2px 0 var(--pq-ink)); transform-origin: 50% 50%; }
@@ -36,7 +36,7 @@ ${THEME_CSS}
 export interface GuideDeps {
   /** Текущий этап по сохранению (null — новичок уже прошёл первые шаги). */
   stage(): GuideStage | null;
-  /** Этап пройден: записать флаг в сохранение (для `replant` не вызывается: он не одноразовый, гаснет сам, когда на грядках что-то растёт). */
+  /** Этап пройден: записать флаг в сохранение (для `emptyplan` не вызывается: он не одноразовый, гаснет сам, когда на рабочее место что-то растёт). */
   done(stage: GuideStage): void;
 }
 
@@ -98,7 +98,7 @@ export function mountGuide(parent: HTMLElement, deps: GuideDeps, bus: Bus<BusEve
     const vw = typeof innerWidth === 'number' && innerWidth > 0 ? innerWidth : p.hero.x + half;
     const vh = typeof innerHeight === 'number' && innerHeight > 0 ? innerHeight : p.target.y + 100;
     bubble.style.left = `${Math.round(Math.min(Math.max(p.hero.x, half + 6), vw - half - 6))}px`;
-    // Не залезать на плашки HUD сверху (опыт, «Сегодня», шкала Polska): низ пузыря не выше HUD_BOTTOM.
+    // Не залезать на плашки HUD сверху (опыт, «Сегодня», шкала прогресса): низ пузыря не выше HUD_BOTTOM.
     bubble.style.top = `${Math.round(Math.max(p.hero.y - 8, (r.height || 30) + HUD_BOTTOM))}px`;
     const onScreen = p.target.x > 16 && p.target.x < vw - 16 && p.target.y > 60 && p.target.y < vh - 110;
     arrow.hidden = false;
@@ -131,16 +131,16 @@ export function mountGuide(parent: HTMLElement, deps: GuideDeps, bus: Bus<BusEve
     paint();
   };
   const finish = (s: GuideStage): void => {
-    if (stage !== s || s === 'replant') return;
+    if (stage !== s || s === 'emptyplan') return;
     deps.done(s);
     const nxt = deps.stage();
-    setStage(s === 'desk' ? (nxt === 'board' || nxt === 'replant' ? nxt : null) : nxt === 'replant' ? nxt : null);
+    setStage(s === 'desk' ? (nxt === 'board' || nxt === 'emptyplan' ? nxt : null) : nxt === 'emptyplan' ? nxt : null);
   };
-  // Грядки изменились (посадка, урожай): «Огород пуст» появляется и гаснет сам. Одноразовые этапы новичка не трогаем.
+  // Грядки изменились (посадка, освоение): «Огород пуст» появляется и гаснет сам. Одноразовые этапы новичка не трогаем.
   const resync = (): void => {
-    if (stage !== null && stage !== 'replant') return;
+    if (stage !== null && stage !== 'emptyplan') return;
     const nxt = deps.stage();
-    if ((nxt === null || nxt === 'replant') && nxt !== stage) setStage(nxt);
+    if ((nxt === null || nxt === 'emptyplan') && nxt !== stage) setStage(nxt);
   };
 
   const offs = [
@@ -152,10 +152,10 @@ export function mountGuide(parent: HTMLElement, deps: GuideDeps, bus: Bus<BusEve
       atGoal = !!p && !!stage && p.use === GUIDE_GOAL[stage];
       paint();
     }),
-    bus.on('farm:plants', resync),
-    // Смена карты: «Garden is empty» актуально и в доме, и на улице.
+    bus.on('pods:update', resync),
+    // Смена карты: «Plan is empty» актуально и в офисе, и на кампусе.
     bus.on('world:location', resync),
-    // Экран или мини-игра закрылись: мог измениться и огород без `farm:plants` (посадка в словаре), и этап.
+    // Экран или мини-игра закрылись: мог измениться и план без `pods:update` (посадка в словаре), и этап.
     bus.on('world:input', ({ enabled }) => {
       if (enabled) resync();
     }),
@@ -163,7 +163,7 @@ export function mountGuide(parent: HTMLElement, deps: GuideDeps, bus: Bus<BusEve
       if (use === 'desk') finish('desk');
     }),
     // Мини-игра началась (панель снизу, автобег): второй этап пройден.
-    bus.on('farm:auto', ({ on }) => {
+    bus.on('work:auto', ({ on }) => {
       if (on && stage === 'board') finish('board');
       if (on) hide();
     }),

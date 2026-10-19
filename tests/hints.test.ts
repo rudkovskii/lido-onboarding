@@ -17,12 +17,12 @@ function setup(seen: string[] = []) {
 }
 
 describe('пузыри-подсказки', () => {
-  it('у стола, доски, коробки и полки при первом подходе: название и подсказка, один раз', () => {
+  it('у ресепшена, тотема, плана и стены значков при первом подходе: название и подсказка, один раз', () => {
     const { bus, node, marks } = setup();
-    expect(Object.keys(HINTS).sort()).toEqual(['board', 'bin', 'desk', 'shelf'].sort());
+    expect(Object.keys(HINTS).sort()).toEqual(['board', 'desk', 'plan', 'shelf'].sort());
     bus.emit('fx:near', { use: 'desk', id: 'desk', x: 100, y: 50 });
     expect(node().hidden).toBe(false);
-    expect(node().textContent).toBe('HandbookPlant cards');
+    expect(node().textContent).toBe('HandbookAdd cards to your plan');
     expect(node().style.left).toBe('100px');
     bus.emit('fx:near', null);
     expect(node().hidden).toBe(true);
@@ -30,19 +30,19 @@ describe('пузыри-подсказки', () => {
     expect(node().hidden).toBe(true); // второй раз не показывается
     bus.emit('fx:near', { use: 'board', id: 'board', x: 10, y: 10 });
     expect(node().textContent).toBe('Mini-gamesPick a game');
-    bus.emit('fx:near', { use: 'bin', id: 'bin', x: 10, y: 10 });
-    expect(node().textContent).toBe('Harvest boxHarvest goes here');
-    expect(marks).toEqual(['desk', 'board', 'bin']);
+    bus.emit('fx:near', { use: 'plan', id: 'plan', x: 10, y: 10 });
+    expect(node().textContent).toBe('My onboarding planYour progress');
+    expect(marks).toEqual(['desk', 'board', 'plan']);
   });
 
   it('уже показанные (флаг в сохранении) и прочие объекты молчат; пузырь гаснет по таймеру и при действии', () => {
     vi.useFakeTimers();
     const { bus, node } = setup(['desk']);
     bus.emit('fx:near', { use: 'desk', id: 'desk', x: 1, y: 1 });
-    bus.emit('fx:near', { use: 'plant', id: 'w.kot', x: 1, y: 1 });
-    bus.emit('fx:near', { use: 'bed', id: 'bed', x: 1, y: 1 });
+    bus.emit('fx:near', { use: 'pod', id: 'w.kot', x: 1, y: 1 });
+    bus.emit('fx:near', { use: 'radio', id: 'radio', x: 1, y: 1 });
     expect(node().hidden).toBe(true);
-    bus.emit('fx:near', { use: 'bin', id: 'bin', x: 1, y: 1 });
+    bus.emit('fx:near', { use: 'plan', id: 'plan', x: 1, y: 1 });
     expect(node().hidden).toBe(false);
     vi.advanceTimersByTime(1100);
     expect(node().hidden).toBe(true);

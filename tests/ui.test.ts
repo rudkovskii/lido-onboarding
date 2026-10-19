@@ -42,9 +42,9 @@ describe('пузырь-заглушка', () => {
     mountBubble(root, bus, 1000);
     const b = root.querySelector<HTMLElement>('[data-bubble]')!;
     expect(b.hidden).toBe(true);
-    bus.emit('world:interact', { location: 'home', use: 'desk', id: 'desk', key: 'prop:desk', label: 'Słownik · Словарь', tile: [8, 3], via: 'action', facing: 'up' });
+    bus.emit('world:interact', { location: 'office', use: 'desk', id: 'desk', key: 'prop:desk', label: 'Handbook', tile: [8, 3], via: 'action', facing: 'up' });
     expect(b.hidden).toBe(false);
-    expect(b.textContent).toBe('Słownik · Словарь');
+    expect(b.textContent).toBe('Handbook');
     vi.advanceTimersByTime(1100);
     expect(b.hidden).toBe(true);
     vi.useRealTimers();

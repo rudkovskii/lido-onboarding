@@ -1,18 +1,18 @@
 // Карты мира: JSON из content/maps/ бандлится в код. Проверка формы — tests/maps.test.ts.
-import farm from '../../content/maps/farm.json';
-import home from '../../content/maps/home.json';
+import campus from '../../content/maps/campus.json';
+import office from '../../content/maps/office.json';
 import type { Dir } from '../types/input';
 import type { LocationMap } from '../types/map';
 import { parseAscii } from './ascii';
 import { buildObjects } from './location';
 
 export const MAPS: Readonly<Record<string, LocationMap>> = {
-  farm: farm as unknown as LocationMap,
-  home: home as unknown as LocationMap,
+  campus: campus as unknown as LocationMap,
+  office: office as unknown as LocationMap,
 };
 
 /** Где игра стартует с чистого сохранения. */
-export const START = { map: 'farm', spawn: 'start' } as const;
+export const START = { map: 'campus', spawn: 'start' } as const;
 
 export function getMap(id: string): LocationMap {
   const m = MAPS[id];

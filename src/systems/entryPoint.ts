@@ -1,7 +1,7 @@
-// Точка входа в мини-игру и возврат к ней. Игра запускается там, где герой стоит (доска, стол, грядка); при выходе
+// Точка входа в мини-игру и возврат к ней. Игра запускается там, где герой стоит (доска, стол, рабочее место); при выходе
 // («Exit ✕», Esc, итог раунда) герой и гусь мгновенно возвращаются на то место и с тем же лицом (`world:return`, сцена
 // гасит экран на 150 мс и пересоздаёт карту). Позиция героя в сохранении, пока игра открыта, не пишется (`holding`):
-// промежуточная клетка у грядки точкой возврата не становится. Чистая логика на шине, без Phaser и DOM.
+// промежуточная клетка у рабочее место точкой возврата не становится. Чистая логика на шине, без Phaser и DOM.
 import type { BusEvents } from '../types/bus';
 import type { Dir } from '../types/input';
 import type { Bus } from './bus';
@@ -29,7 +29,7 @@ export const sameSpot = (a: HeroSpot, b: HeroSpot): boolean => a.map === b.map &
 export function createEntryPoint(bus: Bus<BusEvents>): EntryPoint {
   /** Где герой стоит сейчас (последняя стоянка или действие с объектом). */
   let here: HeroSpot | null = null;
-  let farmOn = false;
+  let workOn = false;
   let origin: HeroSpot | null = null;
   const starters = new Set<(s: HeroSpot) => void>();
 
@@ -42,9 +42,9 @@ export function createEntryPoint(bus: Bus<BusEvents>): EntryPoint {
     bus.on('world:interact', ({ location, hero, facing }) => {
       if (hero) here = { map: location, x: hero[0], y: hero[1], facing };
     }),
-    bus.on('farm:auto', ({ on }) => {
-      if (on === farmOn) return;
-      farmOn = on;
+    bus.on('work:auto', ({ on }) => {
+      if (on === workOn) return;
+      workOn = on;
       if (on) {
         origin = here ? { ...here } : null;
         if (origin) for (const fn of starters) fn({ ...origin });
@@ -58,7 +58,7 @@ export function createEntryPoint(bus: Bus<BusEvents>): EntryPoint {
 
   return {
     get holding() {
-      return farmOn;
+      return workOn;
     },
     get origin() {
       return origin;

@@ -1,15 +1,14 @@
 import Phaser from 'phaser';
 import { bus } from '../systems/bus';
-import { framesOf } from '../systems/plantLook';
-import type { FarmAct, PlantView } from '../types/farm';
+import type { PodAct, PodView } from '../types/plan';
 import type { Dir } from '../types/input';
 import type { Xy } from '../world/ascii';
 import { LocationModel } from '../world/location';
 import { LabelGate } from '../world/labelGate';
 
-// Огород на ферме: растения на грядках (спрайты стадий), вскопанные клетки, подпись над растением у героя и автобег во
-// время мини-игры: очередь действий (полив, удобрение, урожай → коробка). Ответы не ждут анимацию: действия копятся и
-// проигрываются ускоренно (скорость = 1 + длина очереди, до ×4).
+// Терраса с рабочими местами: на каждую добавленную в план карточку приходится стол с монитором (стадии New / Started / Practiced /
+// Mastered), подпись над столом у героя и автобег во время мини-игры: очередь действий (герой подходит к столу и «печатает», при
+// освоении всплывает значок). Ответы не ждут анимацию: действия копятся и проигрываются ускоренно (скорость = 1 + длина очереди, до ×4).
 
 const T = 16;
 const ATLAS = 'custom';
@@ -20,13 +19,13 @@ interface SpriteMeta {
   anims: Record<string, string[]>;
 }
 
-export interface FarmHost {
+export interface PodHost {
   scene: Phaser.Scene;
   model: LocationModel;
   sprites: Record<string, SpriteMeta>;
   hero: Phaser.GameObjects.Sprite;
-  /** Поставить вскопанную землю на клетки (перерисовать автотайлы). */
-  soil(cells: readonly Xy[]): void;
+  /** Положить плитку террасы под рабочие места (перерисовать автотайлы). */
+  deck(cells: readonly Xy[]): void;
   /** Мир → экранные CSS px. */
   toScreen(x: number, y: number): { x: number; y: number };
   /** Мир принимает ввод (не открыт экран). */
@@ -34,74 +33,69 @@ export interface FarmHost {
 }
 
 interface Job {
-  act: FarmAct;
-  phase: 'walk' | 'work' | 'carry' | 'throw';
+  act: PodAct;
+  phase: 'walk' | 'work' | 'pop';
   until: number;
-  /** Смена стадии (`grow`) уже показана. */
+  /** Смена стадии уже показана. */
   evolved?: boolean;
 }
 
-/** Столько действий героя ждут в очереди; лишние поливы схлопываются. */
+/** Столько действий героя ждут в очереди; лишние схлопываются. */
 const MAX_QUEUE = 6;
 
-/** Растение на грядке: основной спрайт, предмет урожая поверх него (мини-версия слова) и мокрая земля. */
-interface Plant {
-  view: PlantView;
+/** Рабочее место: спрайт стадии. */
+interface Pod {
+  view: PodView;
   spr: Phaser.GameObjects.Sprite | Phaser.GameObjects.Graphics;
-  /** Мини-предмет на кусте (только урожай слова-существительного): тот же поворот и масштаб, что у `spr`. */
-  ic: Phaser.GameObjects.Sprite | null;
-  wet: Phaser.GameObjects.GameObject | null;
 }
 
-const STAGE_FRAME: Record<string, string> = { seed: 'crop_seed', sprout: 'crop_sprout', bush: 'crop_bush', ripe: 'crop_ripe' };
+const STAGE_FRAME: Record<string, string> = { new: 'pod_new', started: 'pod_started', practiced: 'pod_practiced', mastered: 'pod_mastered' };
 
-export class FarmLayer {
-  /** Анимация героя поверх ходьбы (`water`, `fert`, `throw`) и ноша над головой. */
+export class PodLayer {
+  /** Анимация героя поверх ходьбы (`work`). */
   heroAction: string | null = null;
-  carrying = false;
   auto = false;
-  private plants = new Map<string, Plant>();
-  private pendingHarvest = new Set<string>();
-  /** Растения, у которых смена стадии ждёт, пока герой дойдёт и польёт (спрайт меняется на глазах, с искрами). */
+  private pods = new Map<string, Pod>();
+  /** Освоенные: на столе уже «Mastered», ждут, пока герой доиграет действие. */
+  private pendingMaster = new Set<string>();
+  /** Столы, у которых смена стадии ждёт, пока герой дойдёт и поработает. */
   private deferred = new Set<string>();
-  private queue: FarmAct[] = [];
+  private queue: PodAct[] = [];
   private job: Job | null = null;
   private focus: { id: string; tile: Xy; label: string } | null = null;
   private focusWalked = '';
-  private item: Phaser.GameObjects.Sprite | null = null;
   private lastLabel = '';
   private labelGate = new LabelGate();
   private offs: (() => void)[] = [];
-  private views: PlantView[] = [];
+  private views: PodView[] = [];
 
-  constructor(private h: FarmHost) {
-    // Старт сцены (в том числе после перезагрузки): растение под боком у героя не подписываем.
+  constructor(private h: PodHost) {
+    // Старт сцены (в том числе после перезагрузки): стол под боком у героя не подписываем.
     this.labelGate.arm();
     this.offs.push(
       bus.on('world:input', ({ enabled }) => {
         if (!enabled) return;
-        // Экран закрылся: убрать подпись и не показывать её для растения, у которого герой стоит.
         this.labelGate.arm();
         this.lastLabel = '';
         bus.emit('fx:label', null);
       }),
-      bus.on('farm:plants', ({ plants, cells }) => this.setPlants(plants, cells)),
-      bus.on('farm:act', (a) => {
-        // Урожай: растение сразу спелое и остаётся на грядке, пока герой его не сорвёт (раскладка его уже убрала).
-        if (a.kind === 'harvest') this.markRipe(a.id);
+      bus.on('pods:update', ({ pods, cells }) => this.setPods(pods, cells)),
+      bus.on('work:act', (a) => {
+        // Освоено: на столе сразу «Mastered», он остаётся, пока герой не доиграет действие (раскладка его уже убрала).
+        if (a.kind === 'master') this.markMastered(a.id);
         this.queue.push(a);
-        // Игрок отвечает сильно быстрее анимации: старые поливы не играем, только «+N» над грядкой.
+        // Игрок отвечает быстрее анимации: старые действия не играем, только «+N» над столом.
         while (this.queue.length > MAX_QUEUE) {
-          const i = this.queue.findIndex((x) => x.kind !== 'harvest');
+          const i = this.queue.findIndex((x) => x.kind !== 'master');
           if (i < 0) break;
           const [old] = this.queue.splice(i, 1);
           if (old?.tile && old.xp > 0) this.float(old.tile, `+${old.xp}`, 'xp');
         }
       }),
-      bus.on('farm:focus', ({ id, tile, label }) => {
+      bus.on('work:focus', ({ id, tile, label }) => {
         this.focus = id && tile ? { id, tile, label } : null;
       }),
-      bus.on('farm:auto', ({ on }) => {
+      bus.on('work:auto', ({ on }) => {
         this.auto = on;
         if (!on) {
           this.focus = null;
@@ -124,80 +118,56 @@ export class FarmLayer {
     return this.h.sprites[name]?.frames[0] ?? null;
   }
 
-  /** Кадр атласа по имени `<лист>/<n>` (кусты, плоды и иконки «пёстрого огорода»); нет в атласе — null. */
-  private named(name: string | null | undefined): string | null {
-    if (!name) return null;
-    const [sheet, n] = name.split('/');
-    return this.h.sprites[sheet ?? '']?.frames[Number(n)] ?? null;
-  }
-
-  /**
-   * Спрайт стадии; нет кадра в атласе (арт ещё не собран) — простая фигура. Семечко общее; росток, кустик и урожай — один из
-   * 16 кустов по карточке (`look`).
-   */
-  private makePlant(v: PlantView): { spr: Phaser.GameObjects.Sprite | Phaser.GameObjects.Graphics; ic: Phaser.GameObjects.Sprite | null } {
+  /** Спрайт стола; нет кадра в атласе — простая фигура. */
+  private makePod(v: PodView): Pod['spr'] {
     const x = v.tile[0] * T + T / 2;
     const bottom = v.tile[1] * T + T;
     const depth = 10 + bottom - 1;
-    const fr = v.look ? framesOf(v.look) : null;
-    const own = fr ? (v.stage === 'sprout' ? fr.sprout : v.stage === 'bush' ? fr.bush : v.stage === 'ripe' ? fr.ripe : null) : null;
-    const ownFrame = this.named(own);
-    if (ownFrame) {
-      const spr = this.h.scene.add.sprite(x, bottom, ATLAS, ownFrame).setOrigin(0.5, 1).setDepth(depth);
-      return { spr, ic: null };
-    }
-    const name = STAGE_FRAME[v.stage]!;
-    const f = this.frame(name);
-    if (f) return { spr: this.h.scene.add.sprite(x, bottom, ATLAS, f).setOrigin(0.5, 1).setDepth(depth), ic: null };
+    const f = this.frame(STAGE_FRAME[v.stage]!);
+    if (f) return this.h.scene.add.sprite(x, bottom, ATLAS, f).setOrigin(0.5, 1).setDepth(depth);
     const g = this.h.scene.add.graphics().setDepth(depth);
-    const colors: Record<string, number> = { seed: 0x7a4b2c, sprout: 0x7ab44f, bush: 0x4f8a35, ripe: 0xd0492f };
-    const r = v.stage === 'seed' ? 2 : v.stage === 'sprout' ? 3 : 5;
-    g.fillStyle(colors[v.stage] ?? 0x4f8a35, 1).fillCircle(x, bottom - 4 - r, r);
-    return { spr: g, ic: null };
+    const colors: Record<string, number> = { new: 0x3d2f3b, started: 0x5ba3d2, practiced: 0x3a73a8, mastered: 0x4f9a35 };
+    g.fillStyle(colors[v.stage] ?? 0x3d2f3b, 1).fillRect(x - 6, bottom - 18, 12, 9);
+    return g;
   }
 
-  private destroyPlant(p: Plant): void {
+  private destroyPod(p: Pod): void {
     p.spr.destroy();
-    p.ic?.destroy();
-    p.wet?.destroy();
   }
 
-  /** Спрайт и предмет — одним списком (общие твины). */
-  private parts(p: Plant): Phaser.GameObjects.Sprite[] {
-    return [p.spr, p.ic].filter((o): o is Phaser.GameObjects.Sprite => o instanceof Phaser.GameObjects.Sprite);
+  private parts(p: Pod): Phaser.GameObjects.Sprite[] {
+    return p.spr instanceof Phaser.GameObjects.Sprite ? [p.spr] : [];
   }
 
-  private setPlants(plants: PlantView[], cells: [number, number][]): void {
-    this.views = plants;
-    this.h.soil(cells);
+  private setPods(pods: PodView[], cells: [number, number][]): void {
+    this.views = pods;
+    this.h.deck(cells);
     const seen = new Set<string>();
-    for (const v of plants) {
+    for (const v of pods) {
       seen.add(v.id);
-      const cur = this.plants.get(v.id);
-      const stage = this.pendingHarvest.has(v.id) ? 'ripe' : v.stage;
+      const cur = this.pods.get(v.id);
+      const stage = this.pendingMaster.has(v.id) ? 'mastered' : v.stage;
       const view = { ...v, stage };
-      if (cur && cur.view.stage === view.stage && cur.view.tile[0] === v.tile[0] && cur.view.tile[1] === v.tile[1] && (cur.view.drops > 0) === (v.drops > 0)) {
+      if (cur && cur.view.stage === view.stage && cur.view.tile[0] === v.tile[0] && cur.view.tile[1] === v.tile[1]) {
         cur.view = view;
         continue;
       }
-      // Новая стадия от «grow»-ответа: пока герой не польёт, на грядке старый спрайт (см. `evolve`).
-      if (cur && cur.view.stage !== view.stage && cur.view.tile[0] === v.tile[0] && cur.view.tile[1] === v.tile[1] && this.growPending(v.id)) {
+      // Новая стадия: пока герой не поработает, на столе старый спрайт (см. `rebuild`).
+      if (cur && cur.view.stage !== view.stage && cur.view.tile[0] === v.tile[0] && cur.view.tile[1] === v.tile[1] && this.advancePending(v.id)) {
         this.deferred.add(v.id);
         continue;
       }
       this.deferred.delete(v.id);
-      if (cur) this.destroyPlant(cur);
-      const wf = this.frame('soil_wet');
-      const wet = v.drops > 0 && wf ? this.h.scene.add.image(v.tile[0] * T + T / 2, v.tile[1] * T + T, ATLAS, wf).setOrigin(0.5, 1).setDepth(1.2) : null;
-      this.plants.set(v.id, { view, ...this.makePlant(view), wet });
+      if (cur) this.destroyPod(cur);
+      this.pods.set(v.id, { view, spr: this.makePod(view) });
     }
-    for (const [id, p] of this.plants) {
-      if (seen.has(id) || this.pendingHarvest.has(id)) continue;
+    for (const [id, p] of this.pods) {
+      if (seen.has(id) || this.pendingMaster.has(id)) continue;
       this.deferred.delete(id);
-      this.destroyPlant(p);
-      this.plants.delete(id);
+      this.destroyPod(p);
+      this.pods.delete(id);
     }
-    this.h.model.setPlants(plants.map((p) => ({ id: p.id, tile: p.tile, label: p.label })));
+    this.h.model.setPods(pods.map((p) => ({ id: p.id, tile: p.tile, label: p.label })));
   }
 
   // ───────────── автобег ─────────────
@@ -216,8 +186,8 @@ export class FarmLayer {
   update(time: number): void {
     const m = this.h.model;
     m.speed = this.auto || this.job ? this.speed() : 1;
-    m.leash = this.auto || this.job !== null; // кот бежит рядом, своими делами не занят
-    if (!this.job && this.queue.length) this.start(this.queue.shift()!, time);
+    m.leash = this.auto || this.job !== null; // гусь рядом, своими делами не занят
+    if (!this.job && this.queue.length) this.start(this.queue.shift()!);
     if (this.job) this.advance(time);
     else if (this.auto && this.focus && !m.busy) {
       const key = `${this.focus.id}@${this.focus.tile.join(',')}`;
@@ -226,37 +196,34 @@ export class FarmLayer {
         m.walkNear(this.focus.tile);
       } else if (!m.busy) m.faceTile(this.focus.tile);
     }
-    // Очередь доиграна, а смена стадии не показана (герой не дошёл, лишний полив схлопнулся): меняем спрайт без показа.
+    // Очередь доиграна, а смена стадии не показана: меняем спрайт без показа.
     if (this.deferred.size && !this.job && !this.queue.length) for (const id of [...this.deferred]) this.rebuild(id, false);
-    this.syncItem();
     this.drawLabel(time);
   }
 
-  private growPending(id: string): boolean {
+  private advancePending(id: string): boolean {
     const j = this.job;
-    return this.queue.some((a) => a.id === id && a.kind === 'grow' && a.tile) || (!!j && j.act.id === id && j.act.kind === 'grow' && !!j.act.tile && (j.phase === 'walk' || (j.phase === 'work' && !j.evolved)));
+    return this.queue.some((a) => a.id === id && a.kind === 'advance' && a.tile) || (!!j && j.act.id === id && j.act.kind === 'advance' && !!j.act.tile && (j.phase === 'walk' || (j.phase === 'work' && !j.evolved)));
   }
 
-  /** Пересобрать растение по текущему виду; `show` — подрос на глазах: вырос на кадр и искры. */
+  /** Пересобрать стол по текущему виду; `show` — стадия сменилась на глазах: вспыхнул экран и искры. */
   private rebuild(id: string, show: boolean, k = 1): void {
     this.deferred.delete(id);
-    const p = this.plants.get(id);
+    const p = this.pods.get(id);
     const v = this.views.find((x) => x.id === id);
     if (!p || !v) return;
-    const view = { ...v, stage: this.pendingHarvest.has(id) ? ('ripe' as const) : v.stage };
-    this.destroyPlant(p);
-    const wf = this.frame('soil_wet');
-    p.wet = v.drops > 0 && wf ? this.h.scene.add.image(v.tile[0] * T + T / 2, v.tile[1] * T + T, ATLAS, wf).setOrigin(0.5, 1).setDepth(1.2) : null;
+    const view = { ...v, stage: this.pendingMaster.has(id) ? ('mastered' as const) : v.stage };
+    this.destroyPod(p);
     p.view = view;
-    Object.assign(p, this.makePlant(view));
+    p.spr = this.makePod(view);
     if (!show) return;
-    bus.emit('fx:sfx', { name: 'grow' });
+    bus.emit('fx:sfx', { name: 'advance' });
     const parts = this.parts(p);
     if (parts.length) {
-      for (const o of parts) o.setScale(0.55);
-      this.h.scene.tweens.add({ targets: parts, scaleX: 1, scaleY: 1, duration: 340 / k, ease: 'Back.easeOut' });
+      for (const o of parts) o.setScale(0.9);
+      this.h.scene.tweens.add({ targets: parts, scaleX: 1, scaleY: 1, duration: 260 / k, ease: 'Back.easeOut' });
     }
-    this.burst(view.tile[0] * T + T / 2, view.tile[1] * T + 4, 6, 11, k);
+    this.burst(view.tile[0] * T + T / 2, view.tile[1] * T - 8, 6, 11, k);
   }
 
   /** Искры (кадр `fx_spark`) вокруг точки мира. */
@@ -265,32 +232,27 @@ export class FarmLayer {
     const f = this.frame('fx_spark');
     for (let i = 0; i < n; i++) {
       const a = (i / n) * Math.PI * 2 + 0.4;
-      const o = f ? s.add.sprite(cx, cy, ATLAS, f).setOrigin(0.5, 0.5) : s.add.rectangle(cx, cy, 2, 2, 0xf2d552);
+      const o = f ? s.add.sprite(cx, cy, ATLAS, f).setOrigin(0.5, 0.5) : s.add.rectangle(cx, cy, 2, 2, 0x8cc0ea);
       o.setDepth(20_000);
       s.tweens.add({ targets: o, x: cx + Math.cos(a) * r, y: cy + Math.sin(a) * r * 0.8 - 4, alpha: 0, delay: delay / k, duration: 440 / k, ease: 'Quad.easeOut', onComplete: () => o.destroy() });
     }
   }
 
-  /** Верный ответ: растение подпрыгивает (вытянулось и сели обратно), вверх летят листики. */
-  private bounce(id: string, k: number, delay = 0): void {
-    const p = this.plants.get(id);
+  /** Верный ответ: монитор мигает (стол слегка «вздыхает»), над ним искра. */
+  private pulse(id: string, k: number, delay = 0): void {
+    const p = this.pods.get(id);
     if (!p || !(p.spr instanceof Phaser.GameObjects.Sprite)) return;
     const parts = this.parts(p);
     const s = this.h.scene;
     s.tweens.killTweensOf(parts);
-    for (const o of parts) o.setScale(1).setAngle(0);
-    s.tweens.add({ targets: parts, scaleY: 1.24, scaleX: 0.9, yoyo: true, duration: 120 / k, delay: delay / k, ease: 'Sine.easeOut', onComplete: () => parts.forEach((o) => o.setScale(1)) });
-    const cx = p.view.tile[0] * T + T / 2;
-    const top = p.view.tile[1] * T + 6;
-    for (let i = 0; i < 3; i++) {
-      const o = s.add.rectangle(cx - 3 + i * 3, top, 2, 2, 0x8cc455).setDepth(20_000);
-      s.tweens.add({ targets: o, y: top - 9 - i * 2, x: o.x + (i - 1) * 3, alpha: 0, delay: (delay + 60 + i * 50) / k, duration: 420 / k, onComplete: () => o.destroy() });
-    }
+    for (const o of parts) o.setScale(1);
+    s.tweens.add({ targets: parts, scaleY: 1.08, scaleX: 0.96, yoyo: true, duration: 110 / k, delay: delay / k, ease: 'Sine.easeOut', onComplete: () => parts.forEach((o) => o.setScale(1)) });
+    this.burst(p.view.tile[0] * T + T / 2, p.view.tile[1] * T - 8, 3, 7, k, delay + 40);
   }
 
-  /** Неверный ответ: растение дрожит на месте. */
+  /** Неверный ответ: стол дрожит на месте. */
   private shake(id: string, k: number): void {
-    const p = this.plants.get(id);
+    const p = this.pods.get(id);
     if (!p || !(p.spr instanceof Phaser.GameObjects.Sprite)) return;
     const parts = this.parts(p);
     const x0 = p.view.tile[0] * T + T / 2;
@@ -299,22 +261,19 @@ export class FarmLayer {
     this.h.scene.tweens.add({ targets: parts, x: x0 + 1.5, yoyo: true, repeat: 2, duration: 45 / k, onComplete: () => parts.forEach((o) => o.setX(x0)) });
   }
 
-  private markRipe(id: string): void {
-    this.pendingHarvest.add(id);
-    const p = this.plants.get(id);
+  private markMastered(id: string): void {
+    this.pendingMaster.add(id);
+    const p = this.pods.get(id);
     if (!p) return;
-    p.spr.destroy();
-    p.ic?.destroy();
-    const v = { ...p.view, stage: 'ripe' as const };
-    p.view = v;
-    Object.assign(p, this.makePlant(v));
+    this.destroyPod(p);
+    p.view = { ...p.view, stage: 'mastered' };
+    p.spr = this.makePod(p.view);
   }
 
-  private start(act: FarmAct, time: number): void {
+  private start(act: PodAct): void {
     this.job = { act, phase: 'walk', until: 0 };
     if (act.tile) this.h.model.walkNear(act.tile);
     this.focusWalked = '';
-    void time;
   }
 
   private advance(time: number): void {
@@ -326,138 +285,80 @@ export class FarmLayer {
         if (m.busy) return;
         if (j.act.tile) m.faceTile(j.act.tile);
         j.phase = 'work';
-        const base = j.act.kind === 'grow' ? 900 : j.act.kind === 'harvest' ? 500 : j.act.kind === 'miss' ? 450 : 700;
+        const base = j.act.kind === 'advance' ? 800 : j.act.kind === 'master' ? 600 : j.act.kind === 'miss' ? 450 : 600;
         j.until = time + base / k;
-        this.heroAction = j.act.kind === 'water' ? 'water' : j.act.kind === 'grow' ? 'fert' : j.act.kind === 'harvest' ? 'fert' : null;
+        this.heroAction = j.act.kind === 'miss' ? null : 'work';
         this.fx(j.act, k);
         return;
       }
       case 'work': {
         if (time < j.until) return;
         this.heroAction = null;
-        if (j.act.kind !== 'harvest') {
+        if (j.act.kind !== 'master') {
           if (j.act.xp > 0 && j.act.tile) this.float(j.act.tile, `+${j.act.xp}`, 'xp');
-          if (j.act.kind === 'miss' && j.act.tile) this.float(j.act.tile, '−💧', 'miss');
+          if (j.act.kind === 'miss' && j.act.tile) this.float(j.act.tile, '−1', 'miss');
           this.job = null;
           return;
         }
-        // Сорвал: растение исчезает с грядки, герой несёт урожай в коробку.
-        bus.emit('fx:sfx', { name: 'pick' });
-        if (j.act.tile) this.burst(j.act.tile[0] * T + T / 2, j.act.tile[1] * T + 4, 6, 10, k);
-        this.pendingHarvest.delete(j.act.id);
-        const p = this.plants.get(j.act.id);
+        // Освоено: над столом всплывает значок и летит вверх, к счётчику на плашке; стол уходит с террасы.
+        bus.emit('fx:sfx', { name: 'chime' });
+        this.pendingMaster.delete(j.act.id);
+        const tile = j.act.tile;
+        if (tile) {
+          const cx = tile[0] * T + T / 2;
+          const top = tile[1] * T - 6;
+          this.burst(cx, top + 6, 8, 12, k);
+          const f = this.frame('item_badge');
+          if (f) {
+            const s = this.h.scene;
+            const it = s.add.sprite(cx, top, ATLAS, f).setOrigin(0.5, 1).setScale(0.4).setDepth(20_001);
+            s.tweens.add({
+              targets: it,
+              scaleX: 1,
+              scaleY: 1,
+              duration: 220 / k,
+              ease: 'Back.easeOut',
+              onComplete: () => s.tweens.add({ targets: it, y: top - 26, alpha: 0, delay: 180 / k, duration: 520 / k, ease: 'Quad.easeIn', onComplete: () => it.destroy() }),
+            });
+          }
+          this.float(tile, `+${j.act.xp}`, 'xp');
+        }
+        const p = this.pods.get(j.act.id);
         if (p && !this.views.some((v) => v.id === j.act.id)) {
-          this.destroyPlant(p);
-          this.plants.delete(j.act.id);
-        } else if (p) {
-          // Перезревшее с той же грядки ушло в банку, но запись ещё есть: перерисуем по текущему виду.
-          p.spr.destroy();
-          p.ic?.destroy();
-          const v = this.views.find((x) => x.id === j.act.id)!;
-          p.view = v;
-          Object.assign(p, this.makePlant(v));
+          this.destroyPod(p);
+          this.pods.delete(j.act.id);
         }
-        this.carrying = true;
-        const f = this.frame('item_crop') ?? this.frame('crop_ripe');
-        if (f) {
-          // Плод поднимается над головой: появляется «с хлопком».
-          const it = this.h.scene.add.sprite(0, 0, ATLAS, f).setOrigin(0.5, 1).setScale(0.4);
-          this.item = it;
-          this.h.scene.tweens.add({ targets: it, scaleX: 1, scaleY: 1, duration: 260 / k, ease: 'Back.easeOut' });
-        }
-        const bin = m.object('prop:bin');
-        if (bin) m.walkNear(bin.at, bin.rects);
-        j.phase = 'carry';
+        j.phase = 'pop';
+        j.until = time + 380 / k;
         return;
       }
-      case 'carry': {
-        if (m.busy) return;
-        const bin = m.object('prop:bin');
-        if (bin) m.faceTile([bin.at[0] + (m.player.tile[0] > bin.at[0] ? 1 : 0), bin.at[1]]);
-        this.heroAction = 'throw';
-        j.phase = 'throw';
-        j.until = time + 450 / k;
-        const xp = j.act.xp;
-        // Плод влетает в коробку: «плим», свечение, искры и «+N».
-        const landed = (): void => {
-          if (!bin) return;
-          bus.emit('fx:sfx', { name: 'plim' });
-          this.float([bin.at[0] + 0.5, bin.at[1] - 1], `+${xp}`, 'xp');
-          this.glow((bin.at[0] + bin.size[0] / 2) * T, (bin.at[1] + 1) * T - 8, k);
-        };
-        if (this.item && bin) {
-          const it = this.item;
-          this.item = null;
-          const s = this.h.scene;
-          // Короткий подброс, потом полёт вниз в коробку.
-          s.tweens.add({
-            targets: it,
-            y: it.y - 9,
-            duration: 130 / k,
-            ease: 'Sine.easeOut',
-            onComplete: () =>
-              s.tweens.add({
-                targets: it,
-                x: (bin.at[0] + bin.size[0] / 2) * T,
-                y: (bin.at[1] + 1) * T - 8,
-                scaleX: 0.7,
-                scaleY: 0.7,
-                duration: 260 / k,
-                ease: 'Quad.easeIn',
-                onComplete: () => {
-                  it.destroy();
-                  landed();
-                },
-              }),
-          });
-        } else landed();
-        this.carrying = false;
-        return;
-      }
-      case 'throw': {
+      case 'pop': {
         if (time < j.until) return;
-        this.heroAction = null;
         this.job = null;
         return;
       }
     }
   }
 
-  /** Свечение коробки при попадании плода: жёлтый овал, расходится и гаснет, и искры. */
-  private glow(x: number, y: number, k: number): void {
-    const s = this.h.scene;
-    const e = s.add.ellipse(x, y, 22, 10, 0xf2d552, 0.6).setDepth(19_999);
-    s.tweens.add({ targets: e, alpha: 0, scaleX: 1.7, scaleY: 1.7, duration: 460 / k, ease: 'Quad.easeOut', onComplete: () => e.destroy() });
-    this.burst(x, y - 2, 6, 12, k);
-  }
-
-  /** Капли полива, искры удобрения; растение отзывается: подрастает, дрожит при промахе, подпрыгивает при урожае. */
-  private fx(act: FarmAct, k: number): void {
+  /** Эффекты действия: клик по клавиатуре и искра; стол отзывается: переходит в новую стадию, мигает, дрожит при ошибке. */
+  private fx(act: PodAct, k: number): void {
     if (!act.tile) return;
     const s = this.h.scene;
     const cx = act.tile[0] * T + T / 2;
-    const top = act.tile[1] * T + 2;
+    const top = act.tile[1] * T - 8;
     if (act.kind === 'miss') this.shake(act.id, k);
-    if (act.kind === 'water' || act.kind === 'grow') {
-      bus.emit('fx:sfx', { name: 'water' });
-      const f = this.frame('fx_drop');
-      for (let i = 0; i < 3; i++) {
-        const x = cx - 4 + i * 4;
-        const o = f ? s.add.sprite(x, top - 6, ATLAS, f).setOrigin(0.5, 1) : s.add.rectangle(x, top - 6, 1, 3, 0x5ba3d2);
-        o.setDepth(20_000);
-        s.tweens.add({ targets: o, y: top + 8, alpha: 0.2, delay: (i * 90) / k, duration: 320 / k, onComplete: () => o.destroy() });
-      }
-      // Капли долетели: растение подросло (смена спрайта и искры при новой стадии, иначе подпрыгнуло).
-      if (act.kind === 'grow') {
+    if (act.kind === 'work' || act.kind === 'advance') {
+      bus.emit('fx:sfx', { name: 'work' });
+      if (act.kind === 'advance') {
         const j = this.job;
         s.time.delayedCall(300 / k, () => {
           if (j) j.evolved = true;
           this.rebuild(act.id, true, k);
         });
-      } else this.bounce(act.id, k, 280);
+      } else this.pulse(act.id, k, 200);
     }
-    if (act.kind === 'harvest') this.bounce(act.id, k);
-    if (act.kind === 'grow' || act.kind === 'harvest') this.burst(cx, top + 6, 4, 9, k, 250);
+    if (act.kind === 'master') this.pulse(act.id, k);
+    if (act.kind === 'advance' || act.kind === 'master') this.burst(cx, top, 4, 9, k, 250);
   }
 
   private float(tile: Xy, text: string, kind: 'xp' | 'miss' | 'info'): void {
@@ -465,13 +366,7 @@ export class FarmLayer {
     bus.emit('fx:float', { x: p.x, y: p.y, text, kind });
   }
 
-  private syncItem(): void {
-    if (!this.item) return;
-    const hero = this.h.hero;
-    this.item.setPosition(hero.x, hero.y - 29).setDepth(hero.depth + 1);
-  }
-
-  /** Подпись над растением: в мини-игре — текущее задание, вне её — растение, к которому повернулся герой. */
+  /** Подпись над столом: в мини-игре — текущее задание, вне её — стол, к которому повернулся герой. */
   private drawLabel(time: number): void {
     let target: { label: string; tile: Xy } | null = null;
     let sticky = false;
@@ -480,13 +375,13 @@ export class FarmLayer {
       sticky = true;
     } else if (!this.auto && this.h.inputOn()) {
       const hint = this.h.model.actionHint();
-      if (hint && hint.key.startsWith('plant:')) {
-        const id = hint.key.slice(6);
+      if (hint && hint.key.startsWith('pod:')) {
+        const id = hint.key.slice(4);
         const v = this.views.find((p) => p.id === id);
         if (v) target = { label: v.label, tile: v.tile };
       }
     }
-    // Вне мини-игры подпись гаснет через пару секунд: не висит над героем, пока он стоит у грядки.
+    // Вне мини-игры подпись гаснет через пару секунд: не висит над героем, пока он стоит у стола.
     if (!this.labelGate.show(target ? `${sticky ? 'q' : 'p'}:${target.label}@${target.tile.join(',')}` : null, time, sticky)) target = null;
     if (!target) {
       if (this.lastLabel) bus.emit('fx:label', null);
@@ -500,14 +395,10 @@ export class FarmLayer {
     bus.emit('fx:label', { text: target.label, x: p.x, y: p.y });
   }
 
-  /** Ключ анимации героя с учётом действия и ноши (нет таких кадров в атласе — null). */
-  heroAnim(facing: Dir, walking: boolean, exists: (key: string) => boolean): string | null {
+  /** Ключ анимации героя с учётом действия (нет таких кадров в атласе — null). */
+  heroAnim(facing: Dir, _walking: boolean, exists: (key: string) => boolean): string | null {
     if (this.heroAction) {
       const k = `hero:${this.heroAction}_${facing}`;
-      if (exists(k)) return k;
-    }
-    if (this.carrying) {
-      const k = `hero:carry_${walking ? 'walk' : 'idle'}_${facing}`;
       if (exists(k)) return k;
     }
     return null;

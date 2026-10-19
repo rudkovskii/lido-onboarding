@@ -83,7 +83,7 @@ describe('плеер: ?mute=1', () => {
     player.toggle();
     player.select('campus', true);
     player.next();
-    player.setLocation('farm');
+    player.setLocation('campus');
     player.setDuck(true);
     await settle();
     expect(made).toHaveLength(0);
@@ -184,10 +184,10 @@ describe('плеер: треки и громкость', () => {
     expect(cfg().volume).toBe(30);
     expect(a.volume).toBeCloseTo(0.3, 2);
     player.setEverywhere(false);
-    player.setLocation('farm');
+    player.setLocation('campus');
     await settle();
     expect(a.paused).toBe(true);
-    player.setLocation('home');
+    player.setLocation('office');
     await settle();
     expect(a.paused).toBe(false);
   });
@@ -366,11 +366,11 @@ describe('экраны', () => {
   });
 });
 
-describe('радио в доме', () => {
-  it('объект radio в home.json с use=radio, файлы треков на месте', async () => {
-    const map = getMap('home');
+describe('радио в офисе', () => {
+  it('объект radio в office.json с use=radio, файлы треков на месте', async () => {
+    const map = getMap('office');
     const obj = map.objects.find((o) => o.type === 'prop' && o.id === 'radio');
-    expect(obj).toMatchObject({ use: 'radio', sprite: 'radio' });
+    expect(obj).toMatchObject({ use: 'radio', sprite: 'speaker' });
     const { existsSync, statSync } = await import('node:fs');
     let total = 0;
     for (const t of TRACKS) {

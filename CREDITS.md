@@ -2,7 +2,7 @@
 
 | What | Author / source | License | Where |
 |---|---|---|---|
-| All sprites and tiles (hero, goose, house, furniture, trees, pool, plants) | drawn for this project in code: `tools/art_*.py` -> `art/sprites/*.sprite.json` | CC0 1.0 | `public/atlas/` |
+| All sprites and tiles (hero, goose, campus, office, desks, trees, pool) | drawn for this project in code: `tools/art_*.py` -> `art/sprites/*.sprite.json` | CC0 1.0 | `public/atlas/` |
 | Pillow | Python Imaging Library | MIT-CMU | build tool (`tools/sprites_build.py`), not in the bundle |
 | Music "Morning" (`public/music/morning.m4a`) | "Sunrise over Clear Skies", Sudocolon, https://opengameart.org/content/sunrise | CC0 1.0 | re-encoded to AAC 64 kbit/s |
 | Music "On the campus" (`campus.m4a`) | "Etirwer (Looped)", Kistol, https://opengameart.org/content/etirwer | CC0 1.0 | AAC 56 kbit/s |

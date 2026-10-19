@@ -4,7 +4,7 @@ import { Boot } from './scenes/Boot';
 import { BG_COLOR, World, type WorldStart } from './scenes/World';
 import { backupDue, shouldRemind, withMark } from './systems/backup';
 import { bus } from './systems/bus';
-import { createFarm } from './systems/farm';
+import { createPlan } from './systems/plan';
 import { createEntryPoint } from './systems/entryPoint';
 import { audioContext, connectAudio } from './systems/platform/audio';
 import { createMusicPlayer } from './systems/platform/music';
@@ -18,7 +18,7 @@ import { mountBoard } from './ui/board';
 import { mountFloats } from './ui/float';
 import { mountHandbook } from './ui/handbook';
 import { mountMinigame } from './ui/minigame';
-import { mountPlantCard } from './ui/plantCard';
+import { mountPodCard } from './ui/podCard';
 import { mountShelf } from './ui/shelf';
 import { mountSummary } from './ui/summary';
 import { mountLevelUp, mountPath } from './ui/levelUp';
@@ -72,7 +72,7 @@ async function main(): Promise<void> {
   });
   bus.on('world:location', ({ id }) => music.setLocation(id));
   // Мини-игра открыта: музыка тише.
-  bus.on('farm:auto', ({ on }) => music.setDuck(on));
+  bus.on('work:auto', ({ on }) => music.setDuck(on));
   mountUpdateToast(overlay);
 
   const settings = mountSettings(overlay, {
@@ -108,20 +108,20 @@ async function main(): Promise<void> {
 
   // Сад: карточки, Handbook, полка, мини-игры. Часы со сдвигом `?now=` оставлены для проверок (рост от дней не зависит).
   const clock = createClock(params.get('now'));
-  const farm = createFarm({
+  const plan = createPlan({
     bus,
-    load: () => store.save.garden,
-    save: (garden) => store.update((s: Save) => ({ ...s, garden }), clock.now()),
+    load: () => store.save.plan,
+    save: (plan) => store.update((s: Save) => ({ ...s, plan }), clock.now()),
     now: () => clock.now(),
   });
   const hud = mountHud(overlay, {
     onSettings: () => settings.open(),
     goal: () => {
-      const s = farm.stats();
-      return `Learned ${s.grownTotal} of ${s.total} · growing ${s.growing}`;
+      const s = plan.stats();
+      return `Learned ${s.masteredTotal} of ${s.total} · in progress ${s.inProgress}`;
     },
     onGoal: () => {
-      if (!game.isOpen) summary.openBed();
+      if (!game.isOpen) summary.openPlan();
     },
     onLevel: () => {
       if (!game.isOpen) pathScreen.open();
@@ -132,12 +132,12 @@ async function main(): Promise<void> {
   const radio = mountRadio(overlay, music);
   mountFloats(overlay);
   // Надёжное сохранение: галочка в углу после записи сада, тост при сбое записи (хранилище само повторяет), раз в 7 дней — напоминание скачать копию.
-  let shownGarden = store.save.garden;
+  let shownPlan = store.save.plan;
   store.onWrite((e) => {
     if (e.type === 'error') return hud.setSaveError(true);
     hud.setSaveError(false);
-    if (store.save.garden !== shownGarden) {
-      shownGarden = store.save.garden;
+    if (store.save.plan !== shownPlan) {
+      shownPlan = store.save.plan;
       hud.flashSaved();
     }
   });
@@ -163,56 +163,55 @@ async function main(): Promise<void> {
   // Первые шаги: к столу (до первого открытия Handbook), потом к доске (до первой мини-игры). Игрок, который уже сажал или отвечал, указателя не видит.
   mountGuide(overlay, {
     stage: (): GuideStage | null => {
-      const g = store.save.garden;
-      if (!hasHint('guide:desk') && g.planted.length === 0) return 'desk';
+      const g = store.save.plan;
+      if (!hasHint('guide:desk') && g.planned.length === 0) return 'desk';
       if (!hasHint('guide:board') && g.log.length === 0) return 'board';
-      // Играл и вырастил всё посаженное: на грядках пусто, а выучено не всё.
-      if (g.planted.length > 0 && g.log.length > 0) {
-        const s = farm.stats();
-        if (s.growing === 0 && s.grownTotal < s.total) return 'replant';
+      // Играл и вырастил всё посаженное: на рабочее место пусто, а выучено не всё.
+      if (g.planned.length > 0 && g.log.length > 0) {
+        const s = plan.stats();
+        if (s.inProgress === 0 && s.masteredTotal < s.total) return 'emptyplan';
       }
       return null;
     },
     done: (stage) => {
-      if (stage !== 'replant') addHint(`guide:${stage}`);
+      if (stage !== 'emptyplan') addHint(`guide:${stage}`);
     },
   });
   const game = mountMinigame(overlay, {
-    next: (mode, only) => farm.next(mode, only),
+    next: (mode, only) => plan.next(mode, only),
     answer: (q, given) => {
-      const r = farm.answer(q, given);
+      const r = plan.answer(q, given);
       return { ok: r.ok, correct: r.correct, card: r.card, ...(r.explain ? { explain: r.explain } : {}), progress: r.progress, act: { kind: r.act.kind, xp: r.act.xp }, path: r.path };
     },
   });
   // Точка входа в игру и возврат к ней при выходе (`world:return`).
   const entry = createEntryPoint(bus);
-  // Герой уйдёт к грядкам; в сохранении остаётся точка входа (вкладку закрыли посреди игры — вернёмся к доске, а не в сад).
+  // Герой уйдёт к рабочее место; в сохранении остаётся точка входа (вкладку закрыли посреди игры — вернёмся к доске, а не в сад).
   entry.onStart((s) => store.update((save: Save) => ({ ...save, position: { map: s.map, x: s.x, y: s.y, facing: s.facing } }), clock.now()));
   const board = mountBoard(overlay, {
-    counts: () => (farm.refresh(), farm.counts()),
+    counts: () => (plan.refresh(), plan.counts()),
     onPick: (mode) => game.start(mode),
   });
-  const handbook = mountHandbook(overlay, farm);
-  const shelf = mountShelf(overlay, farm);
-  const pathScreen = mountPath(overlay, farm);
-  const summary = mountSummary(overlay, farm, undefined, () => pathScreen.open());
-  const plantCard = mountPlantCard(overlay, farm, { onReview: (id) => game.start(farm.modeOf(id), id) });
+  const handbook = mountHandbook(overlay, plan);
+  const shelf = mountShelf(overlay, plan);
+  const pathScreen = mountPath(overlay, plan);
+  const summary = mountSummary(overlay, plan, undefined, () => pathScreen.open());
+  const podCard = mountPodCard(overlay, plan, { onReview: (id) => game.start(plan.modeOf(id), id) });
   bus.on('world:interact', ({ use, id }) => {
     if (game.isOpen) return;
     if (use === 'desk') handbook.open();
     else if (use === 'shelf') shelf.open();
-    else if (use === 'bed') summary.openBed();
+    else if (use === 'plan') summary.openPlan();
     else if (use === 'radio') radio.open();
-    else if (use === 'bin') summary.openBin();
     else if (use === 'board') board.open();
-    else if (use === 'plant') plantCard.open(id);
+    else if (use === 'pod') podCard.open(id);
   });
   bus.on('world:location', ({ id }) => {
-    if (id === 'farm') farm.refresh();
+    if (id === 'campus') plan.refresh();
   });
-  farm.refresh();
+  plan.refresh();
 
-  // Позиция героя и поворот: пишем, когда он остановился. Пока открыта мини-игра, клетка у грядки точкой возврата не становится.
+  // Позиция героя и поворот: пишем, когда он остановился. Пока открыта мини-игра, клетка у рабочее место точкой возврата не становится.
   bus.on('world:position', ({ location: map, x, y, facing }) => {
     if (entry.holding) return;
     store.update((s: Save) => ({ ...s, position: { map, x, y, facing } }), clock.now());
@@ -273,14 +272,14 @@ async function main(): Promise<void> {
     screenOpen = !enabled;
     if (enabled) setTimeout(retryUpdate, 0);
   });
-  bus.on('farm:auto', ({ on }) => {
+  bus.on('work:auto', ({ on }) => {
     if (!on) setTimeout(retryUpdate, 0);
   });
   registerPwa({ onNeedReload: needReload });
   // Страница из старого кэша (HTTP-кэш index.html, встроенный браузер без SW): версия с сервера без кэша.
   watchVersion({ base: import.meta.env.BASE_URL, local: __BUILD_ID__, isStale: staleBuild, onStale: needReload });
 
-  if (dev) (window as unknown as { __pq?: Record<string, unknown> }).__pq = { bus, game: phaser, store, world, settings, input, farm, minigame: game, clock, music, splash };
+  if (dev) (window as unknown as { __pq?: Record<string, unknown> }).__pq = { bus, game: phaser, store, world, settings, input, plan, minigame: game, clock, music, splash };
 }
 
 void main();

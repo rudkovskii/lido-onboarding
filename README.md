@@ -1,7 +1,7 @@
 # Lido Pool Onboarding (prototype)
 
-A small pixel-art onboarding demo for Lido Finance: walk around a campus by the pool, plant knowledge cards in the garden and
-water them by playing three mini-games (Pool Rules, Who's Who, Staking 101). Phaser 4 + Vite + TypeScript, static PWA on GitHub Pages
+A small pixel-art onboarding demo for Lido Finance: walk around a glass-ring tech campus with a pool in its courtyard, add knowledge cards
+to your plan at the reception desk in the office and work through them by playing three mini-games (Pool Rules, Who's Who, Staking 101). Phaser 4 + Vite + TypeScript, static PWA on GitHub Pages
 (`/lido-onboarding/`). **Not an official Lido product.** Policies are fictional; structure facts come from public sources.
 Concept and decisions: `ONBOARDING.md`. Notes for agents: `AGENTS.md` (Russian).
 

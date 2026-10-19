@@ -1,4 +1,4 @@
-// Мини-игра: панель вопроса снизу, как диалог Stardew; мир сверху виден, герой бегает сам и поливает растения.
+// Мини-игра: панель вопроса снизу, как диалог Stardew; мир сверху виден, герой бегает сам и работа рабочее место.
 // Поток идёт раундами по 10 заданий (`ui/roundSummary.ts`): шапка «3 / 10», после 10-го итог раунда с «Next round» / «Back».
 // Следующее задание даёт `deps.next`. Выход в любой момент: Esc, «Exit». Тап по карте игру не закрывает (мир виден специально).
 // Два вида заданий: выбор из строк (`choice`) и сценарий с тремя крупными кнопками OK / Violation / Ask first (`scenario`).
@@ -16,21 +16,21 @@ export interface AnswerResult {
   ok: boolean;
   /** Правильный ответ (как показать). */
   correct: string;
-  /** Карточка, которую поливал ответ. */
+  /** Карточка, которую работа ответ. */
   card: { front: string; back: string };
   /** Сценарий: почему так. */
   explain?: string;
-  /** Что осталось растению после ответа. */
+  /** Что осталось рабочее место после ответа. */
   progress?: string;
   /** Действие героя по ответу (для итога раунда: полито, выросло, собрано, опыт). */
-  act?: { kind: 'water' | 'grow' | 'harvest' | 'miss'; xp: number };
+  act?: { kind: 'work' | 'advance' | 'master' | 'miss'; xp: number };
   /** Путь к Onboarded до и после ответа и название уровня после ответа. */
   path?: { from: number; to: number; sub: number; label: string };
 }
 
 export interface MinigameDeps {
   bus?: Bus<BusEvents>;
-  /** Следующее задание; `only` — одиночный повтор растения (Practice). null — поливать нечего. */
+  /** Следующее задание; `only` — одиночный повтор рабочее место (Practice). null — работа нечего. */
   next(mode: GameMode, only?: string): Question | null;
   answer(q: Question, given: string): AnswerResult;
   /** Мини-игра закрылась. */
@@ -165,7 +165,7 @@ export function mountMinigame(parent: HTMLElement, deps: MinigameDeps): Minigame
   };
   const reportHeight = (): void => {
     if (!open) return;
-    bus.emit('farm:auto', { on: true, bottom: Math.round(box.getBoundingClientRect().height + 12) });
+    bus.emit('work:auto', { on: true, bottom: Math.round(box.getBoundingClientRect().height + 12) });
   };
   const clearTimer = (): void => {
     if (armTimer) clearTimeout(armTimer);
@@ -182,7 +182,7 @@ export function mountMinigame(parent: HTMLElement, deps: MinigameDeps): Minigame
     fb.append(el('div', { class: 'big', 'data-verdict': '' }, r.ok ? `✓ Correct${q?.kind === 'scenario' ? `: ${r.correct}` : ''}` : q?.kind === 'scenario' ? `✗ Not quite. It is: ${r.correct}` : `✗ Not quite. Correct answer: ${r.correct}`));
     if (r.explain) fb.append(el('div', { class: 'why', 'data-explain': '' }, r.explain));
     fb.append(el('div', { class: 'rule', 'data-rule': '' }, el('b', {}, r.card.front), ' — ', r.card.back));
-    if (r.progress) fb.append(el('div', { class: 'pq-progress', 'data-progress-after': '' }, `🌱 ${r.progress}`));
+    if (r.progress) fb.append(el('div', { class: 'pq-progress', 'data-progress-after': '' }, `🖥 ${r.progress}`));
     // «Next» просыпается через 300 мс: двойной тап по варианту не пропускает следующее задание.
     nextReady = false;
     const next = el('button', { type: 'button', class: 'pq-btn wait', 'data-nav': '', 'data-next': '', onclick: () => nextReady && advance() }, 'Next →');
@@ -240,12 +240,12 @@ export function mountMinigame(parent: HTMLElement, deps: MinigameDeps): Minigame
     focusIdx = -1;
     paintRound();
     if (!q || !mode) {
-      paper.append(el('div', { class: 'pq-q' }, 'Nothing to water yet'), el('div', { class: 'pq-q-hint' }, 'Plant cards of this track at the Handbook desk in Onboarding HQ.'));
+      paper.append(el('div', { class: 'pq-q' }, 'Nothing to work on yet'), el('div', { class: 'pq-q-hint' }, 'Add cards of this track to your plan at the Handbook (reception desk) in Onboarding HQ.'));
       requestAnimationFrame(reportHeight);
       return;
     }
     const qb = el('div', { class: 'pq-qblock', 'data-qblock': '' }, el('div', { class: q.kind === 'scenario' ? 'pq-q scn' : 'pq-q', 'data-prompt': '' }, q.prompt), el('div', { class: 'pq-q-hint' }, q.hint));
-    if (q.progress) qb.append(el('div', { class: 'pq-progress', 'data-progress': '' }, `🌱 ${q.progress}`));
+    if (q.progress) qb.append(el('div', { class: 'pq-progress', 'data-progress': '' }, `🖥 ${q.progress}`));
     paper.append(qb, renderOptions(q));
     setFocus(0);
     root.classList.toggle('kb', kbNav);
@@ -260,7 +260,7 @@ export function mountMinigame(parent: HTMLElement, deps: MinigameDeps): Minigame
       api.stop();
       return;
     }
-    // 10 ответов в раунде: вместо следующего задания итог (одиночный повтор растения раундов не знает).
+    // 10 ответов в раунде: вместо следующего задания итог (одиночный повтор рабочее место раундов не знает).
     if (!only && round.done) {
       showSummary();
       return;
@@ -268,7 +268,7 @@ export function mountMinigame(parent: HTMLElement, deps: MinigameDeps): Minigame
     q = deps.next(mode, only);
     // Поливать больше нечего, а ответы в раунде уже были: итог раунда вместо пустого экрана.
     if (!q && !only && round.count > 0) {
-      showSummary('Nothing left to water in this game. Plant more cards at the Handbook desk.');
+      showSummary('Nothing left to work on in this game. Add more cards at the Handbook.');
       return;
     }
     render();
@@ -383,7 +383,7 @@ export function mountMinigame(parent: HTMLElement, deps: MinigameDeps): Minigame
       root.hidden = true;
       q = null;
       mode = null;
-      bus.emit('farm:auto', { on: false, bottom: 0 });
+      bus.emit('work:auto', { on: false, bottom: 0 });
       bus.emit('world:input', { enabled: true });
       deps.onExit?.();
     },

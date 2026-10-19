@@ -1,9 +1,9 @@
-// Handbook: книга на столе в Onboarding HQ. Три вкладки = три трека; карточки с кратким содержанием, посадка одной карточки
-// или всего трека. Посаженное растёт в Knowledge garden (ответами в мини-играх).
+// Handbook: справочник на ресепшене в Onboarding HQ. Три вкладки = три трека; карточки с кратким содержанием, посадка одной карточки
+// или всего трека. Посаженное растёт в Knowledge plan (ответами в мини-играх).
 import { bus as globalBus, type Bus } from '../systems/bus';
 import type { BusEvents } from '../types/bus';
 import type { TrackId } from '../types/content';
-import type { FarmApi } from '../types/farm';
+import type { PlanApi } from '../types/plan';
 import { el } from './dom';
 import { STAGE_NAME, createPanel, nav } from './panel';
 import { iconKeyOf, stageIcon, STAGE_ICON_CSS } from './stageIcon';
@@ -36,7 +36,7 @@ export interface Handbook {
   readonly track: TrackId;
 }
 
-export function mountHandbook(parent: HTMLElement, farm: FarmApi, bus: Bus<BusEvents> = globalBus): Handbook {
+export function mountHandbook(parent: HTMLElement, plan: PlanApi, bus: Bus<BusEvents> = globalBus): Handbook {
   const panel = createPanel({ title: 'Handbook', wide: true, bus });
   const content = el('div', { class: 'hb' });
   panel.body.append(el('style', {}, css), content);
@@ -48,19 +48,19 @@ export function mountHandbook(parent: HTMLElement, farm: FarmApi, bus: Bus<BusEv
       return '/';
     }
   };
-  let track: TrackId = farm.tracks[0]!.id;
+  let track: TrackId = plan.tracks[0]!.id;
 
   function render(): void {
-    const t = farm.tracks.find((x) => x.id === track) ?? farm.tracks[0]!;
-    const cards = farm.cardsOf(t.id);
-    const count = (id: TrackId): { planted: number; total: number } => {
-      const cs = farm.cardsOf(id);
-      return { planted: cs.filter((c) => farm.info(c.id).status !== 'new').length, total: cs.length };
+    const t = plan.tracks.find((x) => x.id === track) ?? plan.tracks[0]!;
+    const cards = plan.cardsOf(t.id);
+    const count = (id: TrackId): { added: number; total: number } => {
+      const cs = plan.cardsOf(id);
+      return { added: cs.filter((c) => plan.info(c.id).status !== 'new').length, total: cs.length };
     };
     const tabs = el(
       'div',
       { class: 'hb-tabs', role: 'tablist' },
-      ...farm.tracks.map((x) => {
+      ...plan.tracks.map((x) => {
         const n = count(x.id);
         return el(
           'button',
@@ -78,11 +78,11 @@ export function mountHandbook(parent: HTMLElement, farm: FarmApi, bus: Bus<BusEv
             },
           },
           x.title,
-          el('small', {}, `${n.planted}/${n.total} planted`),
+          el('small', {}, `${n.added}/${n.total} in plan`),
         );
       }),
     );
-    const left = cards.filter((c) => farm.info(c.id).status === 'new');
+    const left = cards.filter((c) => plan.info(c.id).status === 'new');
     const bulk = el(
       'div',
       { class: 'hb-bulk' },
@@ -91,22 +91,22 @@ export function mountHandbook(parent: HTMLElement, farm: FarmApi, bus: Bus<BusEv
         {
           type: 'button',
           class: 'pq-btn small',
-          'data-plant-track': t.id,
+          'data-add-track': t.id,
           disabled: left.length === 0,
-          ...nav('bulk', 'h', 'plant-track'),
+          ...nav('bulk', 'h', 'add-track'),
           onclick: () => {
-            farm.plant(left.map((c) => c.id));
+            plan.addCards(left.map((c) => c.id));
             render();
             panel.syncFocus();
           },
         },
-        left.length ? `Plant the whole track (${left.length})` : 'Whole track planted',
+        left.length ? `Add whole track (${left.length})` : 'Whole track added',
       ),
       el('span', { class: 'cnt' }, `${cards.length} cards`),
     );
     const head = el('div', { class: 'hb-head' }, tabs, el('div', { class: 'hb-desc' }, `${t.subtitle}. ${t.desc}`), t.id === 'policies' ? el('div', { class: 'hb-note', 'data-phantom': '' }, 'Phantom policies: invented for this demo, not real Lido rules.') : null, bulk);
     const rows = cards.map((c) => {
-      const i = farm.info(c.id);
+      const i = plan.info(c.id);
       const key = iconKeyOf(i);
       const status =
         i.status === 'new'
@@ -115,21 +115,21 @@ export function mountHandbook(parent: HTMLElement, farm: FarmApi, bus: Bus<BusEv
               {
                 type: 'button',
                 class: 'pq-btn small',
-                'data-plant': c.id,
-                'aria-label': `Plant ${c.front}`,
-                ...nav('cards', 'v', `plant:${c.id}`),
+                'data-add': c.id,
+                'aria-label': `Add ${c.front} to plan`,
+                ...nav('cards', 'v', `pod:${c.id}`),
                 onclick: () => {
-                  farm.plant([c.id]);
+                  plan.addCards([c.id]);
                   render();
                   panel.syncFocus();
                 },
               },
-              'Plant',
+              'Add to plan',
             )
-          : el('span', { class: 'st', 'data-status': c.id }, i.status === 'grown' ? 'Learned' : STAGE_NAME[i.stage ?? 'seed']);
+          : el('span', { class: 'st', 'data-status': c.id }, i.status === 'mastered' ? 'Learned' : STAGE_NAME[i.stage ?? 'new']);
       return el(
         'div',
-        { class: `hb-row${i.status === 'grown' ? ' done' : ''}`, 'data-card': c.id },
+        { class: `hb-row${i.status === 'mastered' ? ' done' : ''}`, 'data-card': c.id },
         key ? stageIcon(key, base()) : el('span', { class: 'pq-sico dim', 'aria-hidden': 'true' }),
         el('div', { class: 'txt' }, el('div', { class: 'front' }, c.front), el('div', { class: 'back' }, c.back)),
         status,
@@ -149,7 +149,7 @@ export function mountHandbook(parent: HTMLElement, farm: FarmApi, bus: Bus<BusEv
       render();
       if (!panel.isOpen) {
         panel.open();
-        off = farm.onChange(() => panel.isOpen && (render(), panel.syncFocus()));
+        off = plan.onChange(() => panel.isOpen && (render(), panel.syncFocus()));
       }
       panel.focus();
     },

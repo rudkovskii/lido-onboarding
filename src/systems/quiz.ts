@@ -12,7 +12,7 @@ export const VERDICTS: readonly Verdict[] = ['ok', 'violation', 'ask'];
 export type QuestionSource = 'scenario' | 'structure' | 'recall' | 'reverse';
 
 /**
- * `progress` — что осталось растению до следующей стадии, его дописывает ферма.
+ * `progress` — что осталось рабочее место до следующей стадии, его дописывает кампус.
  * choice: выбор из 4 строк; scenario: три крупные кнопки OK / Violation / Ask first.
  */
 export type Question = (

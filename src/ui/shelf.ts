@@ -1,7 +1,7 @@
 // Learned: полка в Onboarding HQ. Выученные (собранные) карточки по трекам, с полоской «выучено / всего».
 import { bus as globalBus, type Bus } from '../systems/bus';
 import type { BusEvents } from '../types/bus';
-import type { FarmApi } from '../types/farm';
+import type { PlanApi } from '../types/plan';
 import { el } from './dom';
 import { createPanel, nav } from './panel';
 
@@ -25,7 +25,7 @@ export interface ShelfScreen {
   readonly isOpen: boolean;
 }
 
-export function mountShelf(parent: HTMLElement, farm: FarmApi, bus: Bus<BusEvents> = globalBus): ShelfScreen {
+export function mountShelf(parent: HTMLElement, plan: PlanApi, bus: Bus<BusEvents> = globalBus): ShelfScreen {
   const panel = createPanel({ title: 'Learned', bus });
   const content = el('div', {});
   const closeBtn = el('button', { type: 'button', class: 'pq-btn', 'data-done': '', ...nav('done', 'v', 'done'), onclick: () => panel.close() }, 'Close');
@@ -33,11 +33,11 @@ export function mountShelf(parent: HTMLElement, farm: FarmApi, bus: Bus<BusEvent
   parent.append(panel.root);
 
   function render(): void {
-    const learned = new Map(farm.learned().map((l) => [l.track, l.ids]));
+    const learned = new Map(plan.learned().map((l) => [l.track, l.ids]));
     const total = [...learned.values()].reduce((n, ids) => n + ids.length, 0);
-    const sections = farm.tracks.map((t) => {
+    const sections = plan.tracks.map((t) => {
       const ids = learned.get(t.id) ?? [];
-      const all = farm.cardsOf(t.id).length;
+      const all = plan.cardsOf(t.id).length;
       const pct = all ? Math.round((ids.length / all) * 100) : 0;
       return el(
         'section',
@@ -49,14 +49,14 @@ export function mountShelf(parent: HTMLElement, farm: FarmApi, bus: Bus<BusEvent
               'div',
               { class: 'shelf-list' },
               ...ids.map((id) => {
-                const c = farm.card(id);
+                const c = plan.card(id);
                 return el('div', { class: 'shelf-item', 'data-id': id }, el('div', { class: 'front' }, c?.front ?? id), el('div', { class: 'back' }, c?.back ?? ''));
               }),
             )
-          : el('div', { class: 'shelf-empty' }, 'Nothing here yet. Grow cards of this track to the harvest and they land on this shelf.'),
+          : el('div', { class: 'shelf-empty' }, 'Nothing here yet. Master cards of this track and they land on this shelf.'),
       );
     });
-    content.replaceChildren(el('div', { class: 'shelf-sum', 'data-sum': '' }, `Learned: ${total} of ${farm.cards.length} cards`), ...sections);
+    content.replaceChildren(el('div', { class: 'shelf-sum', 'data-sum': '' }, `Learned: ${total} of ${plan.cards.length} cards`), ...sections);
   }
 
   let off: (() => void) | null = null;
@@ -68,7 +68,7 @@ export function mountShelf(parent: HTMLElement, farm: FarmApi, bus: Bus<BusEvent
     open() {
       if (panel.isOpen) return;
       panel.open();
-      off = farm.onChange(() => panel.isOpen && render());
+      off = plan.onChange(() => panel.isOpen && render());
       render();
       panel.focus();
     },

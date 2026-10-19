@@ -4,7 +4,7 @@ import type { Dir } from './input';
 export type Xy = readonly [number, number];
 
 export interface LegendEntry {
-  /** Имя тайла в тайлсете (public/atlas/farm.json). */
+  /** Имя тайла в тайлсете (public/atlas/plan.json). */
   tile: string;
   /** Клетка непроходима. */
   solid?: boolean;
@@ -55,7 +55,7 @@ export interface PropObject {
   dy?: number;
 }
 
-/** Участок под грядки (F-03): `size` — рабочая часть, `reserve` — запас на расширение. */
+/** Участок под рабочее место (F-03): `size` — рабочая часть, `reserve` — запас на расширение. */
 export interface PlotObject {
   type: 'plot';
   id: string;

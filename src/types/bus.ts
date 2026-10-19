@@ -1,18 +1,18 @@
 // Полный список событий шины. Связь scenes/world ⇄ ui и склейка main.ts идут только через неё.
-import type { FarmAct, PlantView } from './farm';
+import type { PodAct, PodView } from './plan';
 import type { DpadSide, Dir, MapControls, RoutedIntent, Source } from './input';
 
 /** Объекты, с которыми можно что-то сделать (`use` в content/maps/*.json). */
-export type UseKind = 'desk' | 'board' | 'bin' | 'shelf' | 'bed' | 'plant' | 'radio';
+export type UseKind = 'desk' | 'board' | 'shelf' | 'plan' | 'pod' | 'radio';
 
 /**
  * КОНТРАКТ ДЛЯ F-03. Игрок нажал A рядом с интерактивным объектом или тапнул по нему (мир сам подошёл).
  * Мир при этом ничего не открывает: слушатель решает, что показать. Событие приходит один раз за действие.
  */
 export interface WorldInteract {
-  /** id карты: `home` или `farm`. */
+  /** id карты: `home` или `plan`. */
   location: string;
-  /** Что за объект: desk (Słownik), board (выбор мини-игры), bin (коробка урожая), shelf (банки), bed (кровать), radio (радио с музыкой). */
+  /** Что за объект: desk (Handbook на ресепшене), board (инфо-тотем с мини-играми), shelf (стена значков Learned), plan (доска My onboarding plan), radio (колонка с музыкой), pod (рабочее место карточки). */
   use: UseKind | (string & {});
   /** Он же id объекта на карте (у этих пяти совпадает с `use`). */
   id: string;
@@ -29,13 +29,13 @@ export interface WorldInteract {
   hero?: [number, number];
 }
 
-/** Звуки действий (`systems/platform/sfx.ts`): шаги, полив, урожай, ответ, окна. */
-export type SfxName = 'step_grass' | 'step_wood' | 'water' | 'pick' | 'plim' | 'correct' | 'wrong' | 'grow' | 'open' | 'close';
+/** Звуки действий (`systems/platform/sfx.ts`): шаги, работа, освоение, ответ, окна. */
+export type SfxName = 'step_stone' | 'step_floor' | 'work' | 'ping' | 'chime' | 'correct' | 'wrong' | 'advance' | 'open' | 'close';
 
 export interface BusEvents {
   /** Мир принимает ввод (оверлей закрыт) или нет (открыт экран F-03: герой встаёт, ввод идёт в оверлей). */
   'world:input': { enabled: boolean };
-  /** КОНТРАКТ ДЛЯ F-03: действие с объектом (стол, доска, коробка, полка, кровать). */
+  /** КОНТРАКТ ДЛЯ F-03: действие с объектом (стол, доска, экран, полка, кровать). */
   'world:interact': WorldInteract;
   /** Герой шагнул в дверь: карта сменится сама (`to` и имя спавна). */
   'world:exit': { from: string; to: string; spawn: string };
@@ -43,21 +43,21 @@ export interface BusEvents {
   'world:location': { id: string; controls: MapControls };
   /** Герой остановился: склейка пишет позицию в сохранение. */
   'world:position': { location: string; x: number; y: number; facing: Dir };
-  /** Опыт и путь к A1 для HUD (V11c). `level` — название уровня («Уровень 7», «Старт», «A1»); `sub` — номер 0…20 (21 — A1), `of` — уровней всего (20); `ratio` — доля внутри уровня; `pct` — доля пути до A1; `toNext` — очков до следующего уровня (null — A1); `growing` — сколько слов растёт; `xp` — всего очков опыта; `gain` — «+N» за ответ; `up` — новый уровень (вспышка, карточка, звук). */
-  'hud:xp': { level: string; ratio: number; sub?: number; of?: number; pct?: number; pos?: number; toNext?: number | null; xp?: number; gain?: number; up?: boolean; growing?: number };
-  /** Грядки фермы: растения и вскопанные клетки (шлёт склейка при любом изменении и при входе на ферму). */
-  'farm:plants': { plants: PlantView[]; cells: [number, number][] };
+  /** Опыт и путь к A1 для HUD (V11c). `level` — название уровня («Уровень 7», «Старт», «A1»); `sub` — номер 0…20 (21 — A1), `of` — уровней всего (20); `ratio` — доля внутри уровня; `pct` — доля пути до A1; `toNext` — очков до следующего уровня (null — A1); `inProgress` — сколько слов растёт; `xp` — всего очков опыта; `gain` — «+N» за ответ; `up` — новый уровень (вспышка, карточка, звук). */
+  'hud:xp': { level: string; ratio: number; sub?: number; of?: number; pct?: number; pos?: number; toNext?: number | null; xp?: number; gain?: number; up?: boolean; inProgress?: number };
+  /** Грядки кампус: рабочее место и вскопанные клетки (шлёт склейка при любом изменении и при входе на кампус). */
+  'pods:update': { pods: PodView[]; cells: [number, number][] };
   /** Мини-игра открыта (герой бегает сам) или закрыта. `bottom` — высота панели вопроса снизу, CSS px. */
-  'farm:auto': { on: boolean; bottom: number };
-  /** Текущее задание мини-игры: герой идёт к этой грядке, подпись над ней. */
-  'farm:focus': { id: string | null; tile: [number, number] | null; label: string };
-  /** Действие героя по ответу (полив, удобрение, урожай, промах): встаёт в очередь автобега. */
-  'farm:act': FarmAct;
-  /** Всплывающая надпись над точкой мира (экранные CSS px): «+10», подпись растения. */
+  'work:auto': { on: boolean; bottom: number };
+  /** Текущее задание мини-игры: герой идёт к этой рабочее место, подпись над ней. */
+  'work:focus': { id: string | null; tile: [number, number] | null; label: string };
+  /** Действие героя по ответу (работа, удобрение, освоение, промах): встаёт в очередь автобега. */
+  'work:act': PodAct;
+  /** Всплывающая надпись над точкой мира (экранные CSS px): «+10», подпись рабочее место. */
   'fx:float': { x: number; y: number; text: string; kind: 'xp' | 'miss' | 'info' };
-  /** Звук действия мира (шаг героя, плеск, срыв, «плим» в коробке): играет `systems/platform/sfx.ts`, если звук включён. */
+  /** Звук действия мира (шаг героя, плеск, срыв, «плим» в экран): играет `systems/platform/sfx.ts`, если звук включён. */
   'fx:sfx': { name: SfxName };
-  /** Подпись над растением у героя (экранные CSS px); null — спрятать. */
+  /** Подпись над рабочее место у героя (экранные CSS px); null — спрятать. */
   'fx:label': { text: string; x: number; y: number } | null;
   /** Герой стоит у объекта, с которым сработает A (над ним рисуется «A»): `x`,`y` — точка над объектом в экранных CSS px; null — отошёл или экран открыт. */
   'fx:near': { use: string; id: string; x: number; y: number } | null;

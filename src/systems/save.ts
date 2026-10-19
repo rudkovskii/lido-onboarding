@@ -1,7 +1,7 @@
 // Модель сохранения: одна запись (позиция героя, настройки, сад) плюс экспорт и импорт файлом.
-// Чистые функции без браузера. Сад — посадки, журнал ответов, раскладка по грядкам (systems/garden.ts).
+// Чистые функции без браузера. Сад — посадки, журнал ответов, раскладка по рабочее место (systems/plan.ts).
 import type { Dir } from '../types/input';
-import { newGarden, normalizeGarden, type GardenSave } from './garden';
+import { newPlan, normalizePlan, type PlanSave } from './progress';
 import { MUSIC_DEFAULT, normalizeMusic, type MusicSettings } from './musicSettings';
 
 export const SAVE_V = 1;
@@ -17,7 +17,7 @@ export interface Position {
 export interface Settings {
   /** Звуки (эффекты) включены. */
   sound: boolean;
-  /** Громкость эффектов (шаги, урожай, ответы), 0–100 %. По умолчанию SFX_VOLUME_DEFAULT. */
+  /** Громкость эффектов (шаги, освоение, ответы), 0–100 %. По умолчанию SFX_VOLUME_DEFAULT. */
   sfxVolume: number;
   /** Музыка (V11b): вкл/выкл, громкость, трек, повтор. По умолчанию выключена. */
   music: MusicSettings;
@@ -32,14 +32,14 @@ export interface Save {
   updated: number;
   position: Position | null;
   settings: Settings;
-  /** Огород: посадки, журнал ответов (только дописывается), грядки. Опыт и стадии выводятся из него. */
-  garden: GardenSave;
+  /** Огород: посадки, журнал ответов (только дописывается), рабочее место. Опыт и стадии выводятся из него. */
+  plan: PlanSave;
   /** Подсказки-пузыри, которые уже показаны (по `use` объекта: desk, board, bin). Каждая показывается один раз. */
   hints: string[];
 }
 
 export function newSave(now: number): Save {
-  return { v: SAVE_V, created: now, updated: now, position: null, settings: { sound: true, sfxVolume: SFX_VOLUME_DEFAULT, music: { ...MUSIC_DEFAULT } }, garden: newGarden(), hints: [] };
+  return { v: SAVE_V, created: now, updated: now, position: null, settings: { sound: true, sfxVolume: SFX_VOLUME_DEFAULT, music: { ...MUSIC_DEFAULT } }, plan: newPlan(), hints: [] };
 }
 
 const DIRS: readonly Dir[] = ['up', 'down', 'left', 'right'];
@@ -64,7 +64,7 @@ export function normalizeSave(raw: unknown): Save | null {
     updated: isNum(r.updated) ? r.updated : 0,
     position,
     settings: { sound: st.sound !== false, sfxVolume: isNum(st.sfxVolume) ? Math.min(100, Math.max(0, Math.round(st.sfxVolume))) : SFX_VOLUME_DEFAULT, music: normalizeMusic(st.music) },
-    garden: normalizeGarden(r.garden),
+    plan: normalizePlan(r.plan),
     hints: Array.isArray(r.hints) ? [...new Set(r.hints.filter((h): h is string => typeof h === 'string'))].slice(0, 32) : [],
   };
 }

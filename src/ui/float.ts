@@ -1,4 +1,4 @@
-// Надписи над миром в DOM (текст в canvas запрещён): «+N» над грядкой и коробкой, подпись растения у героя.
+// Надписи над миром в DOM (текст в canvas запрещён): «+N» над рабочее место и экран, подпись рабочее место у героя.
 import { bus as globalBus, type Bus } from '../systems/bus';
 import type { BusEvents } from '../types/bus';
 import { el } from './dom';
@@ -15,7 +15,7 @@ const css = `
 `;
 
 export function mountFloats(parent: HTMLElement, bus: Bus<BusEvents> = globalBus): () => void {
-  const label = el('div', { class: 'pq-label', hidden: true, 'data-plant-label': '' });
+  const label = el('div', { class: 'pq-label', hidden: true, 'data-pod-label': '' });
   parent.append(el('style', {}, css), label);
   const offs = [
     bus.on('fx:float', ({ x, y, text, kind }) => {

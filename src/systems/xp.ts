@@ -2,9 +2,9 @@
 // хранится, а выводится из состояния сада (журнал ответов).
 //
 // Очки: выученная (собранная) карточка 1. Растущее считается частично (только после первого ответа по нему), чтобы полоска
-// двигалась с первых ответов: семечко 0,1 / росток 0,3 / кустик 0,6 веса. Onboarded = все карточки выучены.
+// двигалась с первых ответов: New 0,1 / Started 0,3 / Practiced 0,6 веса. Onboarded = все карточки выучены.
 import { CARDS } from './content';
-import type { ItemState } from './garden';
+import type { ItemState } from './progress';
 
 export const SUB_COUNT = 8;
 
@@ -29,7 +29,7 @@ export function levelLabel(n: number): string {
 export const nextTarget = (n: number): string => (n >= SUB_COUNT ? 'Onboarded' : `Level ${n + 1}`);
 
 /** Доля веса за растущее (стадия → доля). */
-export const PARTIAL_BY_STAGE = { seed: 0.1, sprout: 0.3, bush: 0.6 } as const;
+export const PARTIAL_BY_STAGE = { new: 0.1, started: 0.3, practiced: 0.6 } as const;
 
 /** Всего очков = карточек. */
 export const TOTAL = CARDS.length;
@@ -46,22 +46,22 @@ export function thresholds(total: number): number[] {
 export const THRESHOLDS: readonly number[] = thresholds(TOTAL);
 
 /** Очки сада: выученное и частичный зачёт за растущее. */
-export function pointsOf(items: Iterable<ItemState>): { grown: number; partial: number; growing: number } {
-  let grown = 0;
+export function pointsOf(items: Iterable<ItemState>): { mastered: number; partial: number; inProgress: number } {
+  let mastered = 0;
   let partial = 0;
-  let growing = 0;
+  let inProgress = 0;
   for (const it of items) {
-    if (it.harvests > 0) {
-      grown += 1;
+    if (it.wins > 0) {
+      mastered += 1;
       continue;
     }
     if (it.stage === null) continue;
-    growing++;
+    inProgress++;
     // Посаженное, но ни разу не отвеченное не считается: путь двигают ответы, а не посадки.
     if (it.answers === 0) continue;
     partial += PARTIAL_BY_STAGE[it.stage];
   }
-  return { grown, partial, growing };
+  return { mastered, partial, inProgress };
 }
 
 export interface PathInfo {
@@ -74,7 +74,7 @@ export interface PathInfo {
   pos: number;
   /** Очки с частичным зачётом, и только выученное. */
   points: number;
-  grown: number;
+  mastered: number;
   total: number;
   /** Доля пути до Onboarded, 0…1 (1 — только когда всё выучено). */
   pct: number;
@@ -87,10 +87,10 @@ export interface PathInfo {
   done: boolean;
 }
 
-export function pathOf(p: { grown: number; partial: number }, total: number = TOTAL, th: readonly number[] = THRESHOLDS): PathInfo {
-  const grown = round2(p.grown);
-  const points = Math.min(total, round2(p.grown + p.partial));
-  if (grown >= total) return { sub: SUB_COUNT + 1, label: DONE_LEVEL.label, ratio: 1, pos: SUB_COUNT + 1, points: total, grown: total, total, pct: 1, toNext: null, nextTo: null, nextAt: null, done: true };
+export function pathOf(p: { mastered: number; partial: number }, total: number = TOTAL, th: readonly number[] = THRESHOLDS): PathInfo {
+  const mastered = round2(p.mastered);
+  const points = Math.min(total, round2(p.mastered + p.partial));
+  if (mastered >= total) return { sub: SUB_COUNT + 1, label: DONE_LEVEL.label, ratio: 1, pos: SUB_COUNT + 1, points: total, mastered: total, total, pct: 1, toNext: null, nextTo: null, nextAt: null, done: true };
   let sub = 0;
   while (sub < th.length && points >= th[sub]!) sub++;
   const lo = sub === 0 ? 0 : th[sub - 1]!;
@@ -102,7 +102,7 @@ export function pathOf(p: { grown: number; partial: number }, total: number = TO
     ratio,
     pos: sub + ratio,
     points,
-    grown,
+    mastered,
     total,
     pct: Math.min(0.99, points / total),
     toNext: Math.max(0, Math.ceil(hi - points - 1e-9)),

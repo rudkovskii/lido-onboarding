@@ -5,7 +5,7 @@ import type { BusEvents } from '../types/bus';
 import type { Dir, RoutedIntent } from '../types/input';
 import type { LocationMap, PropObject } from '../types/map';
 import { frameFor, tileLayers, type TilesetMeta, type Xy } from '../world/ascii';
-import { FarmLayer } from './farmLayer';
+import { PodLayer } from './podLayer';
 import { pickZoom } from '../world/camera';
 import { LocationModel, type Actor, type WorldEvent } from '../world/location';
 import { PositionGate } from '../world/positionGate';
@@ -16,7 +16,7 @@ import { getMap, resolveSpawn, START } from '../world/maps';
 
 const T = 16;
 const ATLAS = 'custom';
-const TILESET = 'farm';
+const TILESET = 'campus';
 /** Высота d-pad снизу в CSS-пикселях (крест 120 px + отступ 16 px + запас): пока он виден, карта не прячет низ под ним. */
 export const DPAD_INSET = 148;
 /** Сверху кнопки HUD. */
@@ -95,12 +95,12 @@ export class World extends Phaser.Scene {
   private inputOn = true;
   private insets = { top: HUD_TOP_INSET, bottom: 0 };
   private cam0: { zoom: number; mw: number; mh: number; fitsW: boolean; fitsH: boolean } | null = null;
-  private farm: FarmLayer | null = null;
+  private pods: PodLayer | null = null;
   /** Спрайты объектов карты по ключу `prop:<id>`. */
   private propSprites = new Map<string, Phaser.GameObjects.Sprite>();
   private groundLayer: Phaser.Tilemaps.TilemapLayer | null = null;
   private tileset: TilesetMeta | null = null;
-  private soilKey = '';
+  private deckKey = '';
   /** Высота панели мини-игры снизу (CSS px): камера держит героя над ней. */
   private panelBottom = 0;
 
@@ -141,13 +141,13 @@ export class World extends Phaser.Scene {
     this.buildProps();
     this.buildActors();
     this.marker = this.add.graphics().setDepth(10_000);
-    this.farm = this.mapDef.id === 'farm' ? new FarmLayer({ scene: this, model: this.model, sprites: this.sprites, hero: this.hero, soil: (c) => this.soil(c), toScreen: (x, y) => this.toScreen(x, y), inputOn: () => this.inputOn }) : null;
+    this.pods = this.mapDef.id === 'campus' ? new PodLayer({ scene: this, model: this.model, sprites: this.sprites, hero: this.hero, deck: (c) => this.deck(c), toScreen: (x, y) => this.toScreen(x, y), inputOn: () => this.inputOn }) : null;
     // Возврат к точке входа после игры: сцена дослушивает все обработчики шины (флаги автобега гаснут) и только потом ставит героя.
     const offReturn = bus.on('world:return', (s) => {
       pendingReturn = s;
       setTimeout(() => this.applyReturn(), 0);
     });
-    const offAuto = bus.on('farm:auto', ({ on, bottom }) => {
+    const offAuto = bus.on('work:auto', ({ on, bottom }) => {
       this.panelBottom = on ? bottom : 0;
       this.layout();
     });
@@ -169,8 +169,8 @@ export class World extends Phaser.Scene {
       offInput();
       offAuto();
       offReturn();
-      this.farm?.dispose();
-      this.farm = null;
+      this.pods?.dispose();
+      this.pods = null;
       watchers.delete(onDpad);
       this.game.events.off(Phaser.Core.Events.HIDDEN, onHidden);
       this.scale.off(Phaser.Scale.Events.RESIZE, this.layout, this);
@@ -191,7 +191,7 @@ export class World extends Phaser.Scene {
     if (!s || this.leaving || !this.model) return;
     pendingReturn = null;
     const p = this.model.player;
-    const idle = !this.model.busy && !this.farm?.blocking;
+    const idle = !this.model.busy && !this.pods?.blocking;
     if (s.map === this.mapDef.id && p.tile[0] === s.x && p.tile[1] === s.y && idle) return;
     this.go(s.map, [s.x, s.y], s.facing);
   }
@@ -233,10 +233,10 @@ export class World extends Phaser.Scene {
 
   override update(time: number, delta: number): void {
     if (this.leaving) return;
-    this.farm?.update(time);
+    this.pods?.update(time);
     for (const ev of this.model.update(Math.min(delta, 100))) this.onWorldEvent(ev, time);
     // Герой стоит (после ходьбы, автобега мини-игры, доигрыша очереди): новая клетка или поворот — в сохранение (B3).
-    const busy = this.model.busy || !!this.farm?.blocking;
+    const busy = this.model.busy || !!this.pods?.blocking;
     const pos = this.posGate.tick(busy, this.mapDef.id, this.model.player.tile, this.model.player.facing);
     if (pos) bus.emit('world:position', pos);
     this.syncHero(time);
@@ -252,7 +252,7 @@ export class World extends Phaser.Scene {
    */
   private emitGuide(): void {
     let out: BusEvents['fx:guide'] = null;
-    if (guideGoal && this.inputOn && !this.leaving && !this.farm?.auto) {
+    if (guideGoal && this.inputOn && !this.leaving && !this.pods?.auto) {
       const prop = this.model.objects.find((o) => o.kind === 'prop' && o.use === guideGoal);
       const o = prop ?? this.model.objects.find((x) => x.kind === 'exit');
       if (o) {
@@ -370,7 +370,7 @@ export class World extends Phaser.Scene {
         const key = `${id}:${name}`;
         if (this.anims.exists(key)) continue;
         const walk = name.startsWith('walk') || name.startsWith('carry_walk');
-        const action = name.startsWith('water') || name.startsWith('fert') || name.startsWith('throw');
+        const action = name.startsWith('work') || name.startsWith('fert') || name.startsWith('throw');
         const rate = walk ? 9 : action ? 5 : name === 'wash' ? 3 : name === 'sleep' || name.startsWith('lie') ? 1.2 : name.startsWith('sniff') ? 2.5 : name.startsWith('crouch') ? 3 : 1;
         this.anims.create({ key, frames: frames.map((frame) => ({ key: ATLAS, frame })), frameRate: rate, repeat: -1 });
       }
@@ -397,13 +397,13 @@ export class World extends Phaser.Scene {
     put('deco', deco, 3);
   }
 
-  /** Вскопать клетки грядок (расширение участка): земля с автотайлами по соседям. */
-  private soil(cells: readonly Xy[]): void {
+  /** Положить плитку террасы под рабочие места: автотайлы по соседям. */
+  private deck(cells: readonly Xy[]): void {
     const key = cells.map((c) => c.join(',')).join(';');
-    if (key === this.soilKey || !this.groundLayer || !this.tileset) return;
-    this.soilKey = key;
+    if (key === this.deckKey || !this.groundLayer || !this.tileset) return;
+    this.deckKey = key;
     const grid = this.model.parsed.ground.map((r) => [...r]);
-    for (const [x, y] of cells) if (grid[y]?.[x] !== undefined) grid[y]![x] = 's';
+    for (const [x, y] of cells) if (grid[y]?.[x] !== undefined) grid[y]![x] = 'k';
     const touched = new Set<string>();
     for (const [x, y] of cells) for (const [dx, dy] of [[0, 0], [1, 0], [-1, 0], [0, 1], [0, -1]] as const) touched.add(`${x + dx},${y + dy}`);
     for (const k of touched) {
@@ -484,7 +484,7 @@ export class World extends Phaser.Scene {
   // ───────────── ввод и события ─────────────
 
   private onIntent(i: RoutedIntent): void {
-    if (i.to !== 'world' || this.leaving || !this.inputOn || this.farm?.blocking) return;
+    if (i.to !== 'world' || this.leaving || !this.inputOn || this.pods?.blocking) return;
     this.model.intent(i);
   }
 
@@ -503,8 +503,8 @@ export class World extends Phaser.Scene {
         this.bump = { dir: ev.dir, until: time + 120 };
         break;
       case 'step':
-        // Шаг героя: доски в доме, трава на ферме (звук играет sfx.ts; в `?mute=1` он не подключён).
-        bus.emit('fx:sfx', { name: this.mapDef.id === 'home' ? 'step_wood' : 'step_grass' });
+        // Шаг героя: доски в доме, трава на кампус (звук играет sfx.ts; в `?mute=1` он не подключён).
+        bus.emit('fx:sfx', { name: this.mapDef.id === 'office' ? 'step_floor' : 'step_stone' });
         break;
     }
   }
@@ -542,7 +542,7 @@ export class World extends Phaser.Scene {
     this.put(this.hero, this.heroShadow, a, ox, oy);
     // Герой выше кота на той же строке: рисуем поверх.
     this.hero.setDepth(this.hero.depth + 0.5);
-    const key = this.farm?.heroAnim(a.facing, !!a.step, (k) => this.anims.exists(k)) ?? `hero:${a.step ? 'walk' : 'idle'}_${a.facing}`;
+    const key = this.pods?.heroAnim(a.facing, !!a.step, (k) => this.anims.exists(k)) ?? `hero:${a.step ? 'walk' : 'idle'}_${a.facing}`;
     if (this.hero.anims.currentAnim?.key !== key) this.hero.play(key);
   }
 
