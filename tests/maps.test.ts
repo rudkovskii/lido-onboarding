@@ -134,3 +134,13 @@ describe('карты: форма и ссылки', () => {
     }
   });
 });
+
+describe('старое сохранение', () => {
+  it('карта прежней версии (farm/home) → старт кампуса', async () => {
+    const { startOf, START } = await import('../src/world/maps');
+    expect(startOf('farm', [5, 5], 'left')).toEqual({ map: START.map, spawn: START.spawn });
+    expect(startOf('home', [3, 3])).toEqual({ map: START.map, spawn: START.spawn });
+    expect(startOf('office', [4, 4], 'up')).toEqual({ map: 'office', spawn: [4, 4], facing: 'up' });
+    expect(startOf(undefined)).toEqual({ map: START.map, spawn: START.spawn });
+  });
+});

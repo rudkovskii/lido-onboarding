@@ -20,6 +20,12 @@ export function getMap(id: string): LocationMap {
   return m;
 }
 
+/** Старт из сохранения: карты прежних версий (`farm`, `home`) больше нет — тогда старт кампуса, иначе сцена падает и мир пустой. */
+export function startOf(map: string | undefined, spawn?: string | readonly number[], facing?: Dir): { map: string; spawn: string | readonly number[]; facing?: Dir } {
+  if (map === undefined || !Object.hasOwn(MAPS, map)) return { map: START.map, spawn: START.spawn };
+  return { map, spawn: spawn ?? START.spawn, ...(facing ? { facing } : {}) };
+}
+
 export interface Spawn {
   tile: [number, number];
   facing: Dir;

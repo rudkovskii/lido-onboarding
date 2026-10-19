@@ -9,7 +9,7 @@ import { PodLayer } from './podLayer';
 import { pickZoom } from '../world/camera';
 import { LocationModel, type Actor, type WorldEvent } from '../world/location';
 import { PositionGate } from '../world/positionGate';
-import { getMap, resolveSpawn, START } from '../world/maps';
+import { getMap, resolveSpawn, startOf } from '../world/maps';
 
 // Сцена мира: карта, герой, кот, объекты. Логика в world/location.ts; сцена рисует и переводит события модели в шину.
 // Ввод приходит intents через bus (`input:intent`, to = world); тап по карте разбирает PointerSource через tileAt().
@@ -129,9 +129,9 @@ export class World extends Phaser.Scene {
 
   create(): void {
     this.cameras.main.setBackgroundColor(BG_COLOR);
-    const id = this.start0.map ?? START.map;
-    this.mapDef = getMap(id);
-    const spawn = resolveSpawn(this.mapDef, this.start0.spawn ?? START.spawn, this.start0.facing);
+    const st = startOf(this.start0.map, this.start0.spawn, this.start0.facing);
+    this.mapDef = getMap(st.map);
+    const spawn = resolveSpawn(this.mapDef, st.spawn, st.facing);
     this.sprites = this.cache.json.get('sprites') as SpritesMeta;
     this.model = new LocationModel(this.mapDef, spawn.tile, { facing: spawn.facing, spriteSize: (id) => this.sprites[id]?.size });
 
